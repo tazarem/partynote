@@ -1,0 +1,30 @@
+
+.y-collapse{
+    max-height: 0;
+    transition: all ease .3s;
+}
+.x-collapse{
+    max-width: 0;
+    transition: all ease .3s;
+}
+
+/* y접힘 */
+.collapse-y{
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height ease .5s;
+}
+/* x접힘 */
+.collapse-x{
+    max-width: 0;
+    transition: max-width ease .5s;
+    overflow: hidden;
+}
+/* 단순 숨기기 */
+.hide{
+    display: none;
+}
+/* 모습만 안 보이고 차지하는 공간은 그대로 */
+.hidden{
+    visibility: hidden;
+}

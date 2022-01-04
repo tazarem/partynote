@@ -1,0 +1,130 @@
+.note-factor{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0.5rem;
+    transition: all ease .3s;
+    box-shadow:0 0 #0000007a;
+    cursor: pointer;
+}
+/*바둑판 레이아웃*/
+.note-container.box-style{
+    display: flex;
+    flex-wrap: wrap;
+}
+.note-factor:active{
+    
+}
+.note-factor:hover {
+    transform: translateY(-0.1em) translateX(-0.1em);
+    box-shadow: 1px 1px 6px 3px #0000007a;
+    transition: all ease .3s;
+}
+
+/*리스트 레이아웃*/
+.note-container .list-style{
+
+}
+.list-style .note-factor{
+    
+}
+
+/*카드 사이즈*/
+.box-style.big-card-size .note-factor{
+    /* min-width: calc(calc(100vw/2) - 1.32rem);
+    max-width: calc(calc(100vw/2) - 1.32rem); */
+    min-width: calc(calc(100vw/2) - calc(.5rem*2));
+    max-width: calc(calc(100vw/2) - calc(.5rem*2));
+
+    height: 10rem;
+}
+.box-style.med-card-size .note-factor{
+    /* min-width: calc(calc(100vw/3) - 1.21rem);
+    max-width: calc(calc(100vw/3) - 1.21rem); */
+    min-width: calc(calc(100vw/3) - calc(.5rem*2));
+    max-width: calc(calc(100vw/3) - calc(.5rem*2));
+    font-size: 1em;
+    height: 8.5rem;
+}
+.box-style.small-card-size .note-factor{
+    /* min-width: calc(calc(100vw/4) - 1.21rem);
+    max-width: calc(calc(100vw/4) - 1.21rem); */
+    min-width: calc(calc(100vw/4) - calc(.5rem*2));
+    max-width: calc(calc(100vw/4) - calc(.5rem*2));
+    font-size: .9em;
+    height: 4.5rem;
+}
+.list-style.big-card-size .title{
+    font-size: 1.3em;
+}
+.list-style.med-card-size .title{
+    font-size: 1.1em;
+}
+.list-style.small-card-size .title{
+
+}
+.list-style.big-card-size .date{
+    font-size: 1em;
+}
+.list-style.med-card-size .date{
+    font-size: .9em;
+}
+.list-style.small-card-size .date{
+
+}
+.list-style.big-card-size .th-text{
+    font-size: 1.1em;
+}
+.list-style.med-card-size .th-text{
+    font-size: 1em;
+}
+.list-style.small-card-size .th-text{
+
+}
+
+.box-style.big-card-size .title{
+    font-size: 1.3em;
+}
+.box-style.med-card-size .title{
+    font-size: 1.1em;
+}
+.box-style.small-card-size .title{
+
+}
+.box-style.big-card-size .date{
+    font-size: 1em;
+}
+.box-style.med-card-size .date{
+    font-size: .9em;
+}
+.box-style.small-card-size .date{
+    font-size: .8em;
+}
+.box-style.big-card-size .th-text{
+    font-size: 1.1em;
+}
+.box-style.med-card-size .th-text{
+    font-size: 1em;
+}
+.box-style.small-card-size .th-text{
+    font-size: .9em;
+}
+
+.big-card-size .note-factor{
+    height: 8rem;
+}
+.med-card-size .note-factor{
+    height: 6rem;
+}
+.small-card-size .note-factor{
+    height: 4.5rem;
+}
+
+
+/*썸네일텍스트 노출 여부*/
+
+.none-th-text .th-text{
+    display: none;
+}
+.expose-th-text .th-text{
+    display: block;
+}

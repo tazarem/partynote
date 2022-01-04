@@ -1,0 +1,240 @@
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="shortcut icon" href="./img/favicons/favicon.ico" />
+
+    <!-- jquery -->
+    <script src="./js/jquery.js"></script>
+    <!-- mdi icons -->
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@mdi/font@6.4.95/css/materialdesignicons.min.css">
+    <link rel="stylesheet" href="./lib/css/fontawesome5/all.css">
+    <link rel="stylesheet" href="./css/note.css">
+    <link rel="stylesheet" href="./css/note-layout.css">
+    <!-- <link rel="stylesheet" href="./css/note.css"> -->
+    <link rel="stylesheet" href="./css/hide.css">
+    
+    <!-- Main Quill library -->
+    <script src="//cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="//cdn.quilljs.com/1.3.6/quill.min.js"></script>
+
+    <!-- Theme included stylesheets -->
+    <link href="//cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    
+    <title>PartyNote</title>
+    <script src="./store/idb.js"></script>
+    <script src="./lib/js/jquery.alterclass.js"></script>
+    <script src="./js/note.js"></script>
+    <script src="./js/note-config.js"></script>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="logo-cover">
+            <img class="logo-img" src="./img/favicons/favicon-32x32.png">
+            <div class="logo-text">PartyNote</div>
+        </div>
+
+        <div class="right-position df">
+            <div class="round-mask size-3rem top-bar-btn note-search">
+                <i class="mdi mdi-magnify"></i>
+            </div>
+            <div class="round-mask size-3rem top-bar-btn note-writer">
+                <i class="mdi mdi-plus"></i>
+            </div>
+            <div class="round-mask size-3rem top-bar-btn menu-btn" data-target="menu-drawer" onclick="note.toggleDrawer()">
+                <i class="mdi mdi-menu"></i>
+            </div>
+        </div>
+        <div class="search-banner collapse-y">
+            <input type="text" id="note-searcher" placeholder="검색할 노트의 제목 또는 내용 입력.."/>
+            <div class="search-deleter hide">
+                <i class="mdi mdi-close"></i>
+            </div>
+
+        </div>
+    </div>
+    <div class="note-container scroll
+    list-style med-card-size expose-th-text">
+        <div class="card-loader hide"></div>
+    </div>
+
+    <!--popup-->
+    <div class="popup-overlay hide">
+        <div class="popup">
+            <div class="popup-header">
+                <div class="title"></div>
+
+                <div class="right-position">
+                    <div class="date"></div>
+                    <div class="close">
+                        <i class="mdi mdi-close"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="popup-contents scroll"></div>
+
+            <div class="popup-right-float">
+                <div class="popup-option-btn detail-btn">
+                    <i class="mdi mdi-dots-vertical"></i>
+                </div>
+                <div class="popup-option-list y-collapse">
+                </div>
+            </div>
+            <!-- <div class="popup-footer"></div> -->
+        </div>
+    </div>
+    <!-- popup -->
+    
+    <!-- menu -->
+    <div class="menu-overlay collapse-x">
+        <div class="menu-screen">
+            <div class="screen-compo scroll config">
+                <h3>레이아웃</h3>
+                <div class="config-caption">카드가 배치되는 패턴을 변경합니다.</div>
+                <div class="df ac">
+                    <input type="radio" id="ly-box" name="card_layout" value="box"/>
+                    <!-- <i class="mdi mdi-border-all"></i> -->
+                    <label for="ly-box">바둑판</label>
+                    <input type="radio" id="ly-list" name="card_layout" value="list" checked/>
+                    <!-- <i class="mdi mdi-clipboard-list-outline"></i> -->
+                    <label for="ly-list">리스트</label> 
+                </div>
+ 
+
+                <h3>카드</h3>
+                <div class="config-caption">카드의 크기를 변경합니다.</div>
+                <div class="df ac">
+                    <input type="radio" id="cs-big" name="card_size" value="big"/>
+                    <label for="cs-big">크게</label>
+                    <input type="radio" id="cs-med" name="card_size" value="med" checked/>
+                    <label for="cs-med">보통</label>
+                    <input type="radio" id="cs-sml" name="card_size" value="small"/>
+                    <label for="cs-sml">작게</label>
+                </div>
+
+
+                <h3>내용 표시</h3>
+                <div class="config-caption">카드가 작을 경우 썸네일 텍스트가 표기되지 않을 수 있습니다.</div>
+                <div class="df ac">
+                    <input type="radio" id="th-td" name="thumb_text" value="expose" checked/>
+                    <label for="th-td">내용 표시</label>
+                    <input type="radio" id="th-tn" name="thumb_text" value="none"/>
+                    <label for="th-tn">제목만 표시</label>
+                </div>
+
+            </div>
+            <div class="screen-compo scroll profile hide">
+                <!-- 이용자 프로파일 및 서버 동기화 여부 -->
+                <h3>나의 프로필</h3>
+                <!-- <div class="profile-render-zone"></div> -->
+                <div class="your-profile active-login hide">
+                    <!-- <div class="round-mask profile-img-wrapper">
+                        <img src="" alt="profile_sample"/>
+                    </div> -->
+                    <h3 id="userNick">Sample User</h3>
+                    <div class="profile-attr">
+                        <div class="param-caption">아이디</div>
+                        <div id="userId"></div>
+                    </div>
+                    <div class="profile-attr">
+                        <div class="param-caption">E-mail</div>
+                        <div id="userEmail"></div>
+                    </div>
+                    <div class="profile-attr">
+                        <div class="param-caption">인증여부</div>
+                        <div id="isCert"></div>
+                    </div>
+
+                    <div class="menu-btns logout">로그아웃</div>
+                </div>
+                <div class="req-login">
+                    <div class="detail-caption">프로필을 보려면 로그인해야 해요.</div>
+                    <div class="df fc loginform">
+                        <input type="text" id="user_id" name="user_id" placeholder="아이디">
+                        <input type="password" id="user_password" name="user_password" placeholder="비밀번호">
+                    </div>
+                    <div class="menu-btns login">로그인</div>
+
+                    <h3>회원가입</h3>
+                    <div class="detail-caption">계정을 만들면 노트들을 서버에 백업할 수 있어요.</div>
+                    <div class="menu-btns sign-up">회원가입</div>
+                </div>
+
+            </div>
+            <div class="screen-compo scroll bookstore hide">
+                <h3>서재</h3>
+                <div class="detail-caption">현 노트들의 상태를 서버로 업로드하거나 다운로드 받을 수 있어요</div>
+                <div class="local-notes-infos">
+
+                </div>
+                <div class="req-login">
+                    서재를 이용하려면 로그인이 필요해요
+                </div>
+                <div class="active-login hide">
+                    서버에 저장된 최신 정보의 날짜를 보여주고 (없으면 업로드기록 없음)<br>
+                    최근 다운로드 정보를 브리핑한다 (언제 다운로드함)<br>
+                    
+                    현재 로컬 기록도 브리핑<br>
+                    
+                    <div class="df menu-btn-group">
+                        <div class="menu-btns upload-notes">
+                            <i class="mdi mdi-upload"></i>
+                            서버로 업로드</div>
+                        <div class="menu-btns download-notes">
+                            <i class="mdi mdi-download"></i>
+                            서버에서 다운로드</div>
+                    </div>
+
+                </div>
+
+
+            </div>
+            <div class="screen-compo scroll version-info hide">
+                <h3>버전 정보</h3>
+                <div class="detail-caption">Partynote Beta v0.81</div>
+                <h3>만든 이</h3>
+                
+                <div class="df" style="align-items: flex-end; margin-bottom: .3rem;">
+                    <div class="round-mask creator-profile">
+                        <i
+                        style="
+                        margin-left: -0.2rem;
+                        margin-top: -0.1rem;
+                        "
+                        >🥥</i>
+                    </div>
+                    <div style="margin-left: .5rem;">Tazarem</div>
+                </div>
+                <div class="link-btn">
+                    <a href="https://github.com/tazarem">👉 https://github.com/tazarem </a>
+                </div>
+            </div>
+        </div>
+        <div class="menu-container">
+            <ul class="menu-drawer" >
+                <li class="menu-factor active" data-target="config">
+                    <i class="menu-icon mdi mdi-cog"></i>
+                    <div class="menu-name">설정</div>
+                </li>
+                <li class="menu-factor" data-target="profile">
+                    <i class="menu-icon mdi mdi-account"></i>
+                    <div class="menu-name">프로필</div>
+                </li>
+                <li class="menu-factor" data-target="bookstore">
+                    <i class="menu-icon mdi mdi-book"></i>
+                    <div class="menu-name">서재</div>
+                </li>
+                <li class="menu-factor" data-target="version-info">
+                    <i class="menu-icon mdi mdi-balloon"></i>
+                    <div class="menu-name">버전 정보</div>
+                </li>
+
+            </ul>
+        </div>
+    </div>
+    <!-- menu -->
+</body>
+</html>
