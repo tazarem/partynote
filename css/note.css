@@ -97,6 +97,7 @@ opacity: 0;
     background-color: cornflowerblue;
     border-radius: .3rem;
     padding: .3rem .5rem;
+    margin-top: .5rem;
     display: inline-block;
 }
 .link-btn>a{
@@ -460,6 +461,7 @@ label{
 .menu-btns.login{
     background-color: #FFFF8D;
     color: #000;
+    margin-top: .25rem;
 }
 .menu-btns.logout{
     background-color: #FF8A80;
@@ -469,6 +471,7 @@ label{
 .menu-btns.sign-up{
     background-color: #84FFFF;
     color: #000;
+    margin-top: .25rem;
 }
 .menu-btns.upload-notes{
     background-color: #EA80FC;
