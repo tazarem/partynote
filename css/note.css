@@ -420,6 +420,7 @@ opacity: 0;
     transition: max-width ease-in-out .5s;
     display: flex;
     justify-content: flex-end;
+    white-space: nowrap;
 }
 .menu-screen{
     background-color: #0000007a;
@@ -471,7 +472,7 @@ label{
 .menu-btns.sign-up{
     background-color: #84FFFF;
     color: #000;
-    margin-top: .25rem;
+    margin-top: .55rem;
 }
 .menu-btns.upload-notes{
     background-color: #EA80FC;
@@ -587,9 +588,9 @@ label{
     .menu-name{
         display: none;
     }
-    #quill_editor{
+    /* #quill_editor{ */
         /* font-size: .85em !important; */
-    }
+    /* } */
     .ql-toolbar{
         height: 0 !important;
         padding: 0 !important;
@@ -607,9 +608,9 @@ label{
         padding: .3rem .5rem;
         color:#555
     }
-    .popup-contents{
+    /* .popup-contents{ */
         /* font-size: .85em; */
-    }
+    /* } */
     .popup-contents>p{
         margin: .2rem 0;
     }
