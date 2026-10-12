@@ -705,3 +705,95 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .editor-book { font-size: .85rem; color: var(--sub); }
 .sheet-option .clip { flex: 1; }
 .sheet-options { max-height: 55vh; overflow-y: auto; }
+
+/* 책 정보 (선택창 안) */
+.info-list { margin: 0; display: flex; flex-direction: column; }
+.info-list > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .7rem .1rem;
+    border-bottom: 1px dashed var(--line);
+}
+.info-list > div:last-child { border-bottom: 0; }
+.info-list dt { color: var(--sub); font-size: .9rem; }
+.info-list dt i { width: 1.2rem; text-align: center; opacity: .75; }
+.info-list dd { margin: 0; font-weight: bold; text-align: right; white-space: nowrap; }
+
+/* ---------- 책 완결 / 연재 중지 ---------- */
+/* 완료: 테마와 상관없이 환한 금빛 */
+.item-row.book[data-status="done"] {
+    background: linear-gradient(135deg, #FFFDE7, #FFE082);
+    color: #3E2F00;
+    box-shadow: 0 0 0 1px #FFC10799, 0 2px 10px #FFC10744;
+}
+.item-row.book[data-status="done"] .item-icon { background: #FFB300; color: #3E2F00; }
+.item-row.book[data-status="done"] .item-sub { color: #7A5F00; }
+/* 중단: 조금 어둡게, 꺼진 것처럼 */
+.item-row.book[data-status="stopped"] {
+    background: var(--overlay);
+    box-shadow: 0 0 0 1px var(--line);
+    opacity: .6;
+    filter: grayscale(1);
+}
+.item-row.book[data-status="stopped"] .item-icon { background: var(--sub); color: var(--surface); }
+.item-row.book[data-status="stopped"] .item-title { text-decoration: line-through; text-decoration-color: var(--sub); }
+
+.status-banner {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .7rem .9rem;
+    border-radius: var(--radius);
+    font-weight: bold;
+}
+[data-status="done"] > .status-banner { background: linear-gradient(135deg, #FFFDE7, #FFE082); color: #3E2F00; box-shadow: 0 0 0 1px #FFC10799; }
+[data-status="stopped"] > .status-banner { background: var(--overlay); color: var(--sub); }
+/* 연재를 멈춘 책은 안쪽도 한 톤 가라앉힘 (고치는 것은 그대로 가능) */
+[data-status="stopped"] > .book-head, [data-status="stopped"] > .page-list { opacity: .6; filter: grayscale(1); }
+
+.status-actions { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; }
+.status-btn {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    padding: .75rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: .75rem;
+    background: var(--bg);
+    text-align: left;
+}
+.status-btn b i { width: 1.2rem; text-align: center; }
+.status-btn span { font-size: .8rem; color: var(--sub); padding-left: 1.5rem; }
+.status-btn.done { background: linear-gradient(135deg, #FFFDE7, #FFE082); border-color: #FFC10799; color: #3E2F00; }
+.status-btn.done span { color: #7A5F00; }
+.status-btn.stopped { background: transparent; color: var(--sub); }
+
+.confetti-layer {
+    position: fixed;
+    left: 50%;
+    top: 40%;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    z-index: 80;
+}
+.confetti {
+    position: absolute;
+    width: .55rem;
+    height: .8rem;
+    border-radius: 2px;
+    opacity: 0;
+    animation: confetti-fly var(--d) cubic-bezier(.15, .7, .3, 1) forwards;
+}
+@keyframes confetti-fly {
+    0% { transform: translate(0, 0) rotate(0) scale(.4); opacity: 1; }
+    75% { opacity: 1; }
+    100% { transform: translate(var(--x), calc(var(--y) + 140px)) rotate(var(--r)) scale(1); opacity: 0; }
+}
+
+.status-banner { margin-bottom: 1rem; }
+/* 완결한 책: 표지 아이콘은 금빛 위에서도 보이게 그대로 둠 */
+.item-row.book[data-status="done"] .item-icon.book-cover { color: #fff; }
+.item-row.book[data-status="stopped"] .item-icon.book-cover { background: var(--sub) !important; }

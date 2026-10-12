@@ -1,7 +1,7 @@
 {
     "name": "파티노트",
     "short_name": "파티노트",
-    "description": "짧은 이야기를 낱장 메모로 적고, 묶어서 책으로 만드는 노트",
+    "description": "짧은 이야기를 낱장 메모로 적고, 묶어서 책으로 만드는 북 라이터 어플리케이션",
     "icons": [
         {
             "src": "./img/icons/icon-192.png",

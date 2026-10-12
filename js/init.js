@@ -113,6 +113,7 @@ class PartyNoteInit {
             if (action) {
                 switch (action.dataset.action) {
                     case 'favorite': return party_note.toggleFavorite()
+                    case 'book-info': return party_note.openBookInfo()
                     case 'book-rename': return party_note.renameBook()
                     case 'book-delete': return party_note.deleteBook()
                     case 'page-new': return party_note.editMemo(null, party_note.open_book_id)

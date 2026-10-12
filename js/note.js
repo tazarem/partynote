@@ -77,6 +77,51 @@ function legacyHtmlToText(html) {
     return lines.join('\n').replace(/ /g, ' ').trim()
 }
 
+// 책의 상태. order: 목록에서 쓰는 중 → 완결 → 연재 중지 순으로
+const BOOK_STATUS = {
+    active: { order: 0 },
+    done: { order: 1, label: '완결한 책', short: '완결', icon: 'fas fa-trophy' },
+    stopped: { order: 2, label: '연재를 멈춘 책', short: '연재 중지', icon: 'fas fa-pause' },
+}
+function statusOf(book) {
+    return ['done', 'stopped'].includes(book?.status) ? book.status : 'active'
+}
+
+// 시각 → '2026년 10월 12일'
+function fullDate(time) {
+    const d = new Date(time)
+    return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`
+}
+
+// 시작한 날부터 오늘까지의 기간: '12일째', '3개월 5일째', '1년 2개월째' (시작한 날이 1일째)
+function periodLabel(from, to = Date.now()) {
+    const a = new Date(from), b = new Date(to)
+    let months = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth()
+    let days = b.getDate() - a.getDate()
+    if (days < 0) {
+        months--
+        // 지난달의 같은 날짜부터 센 날 수 (31일에 시작했는데 지난달이 28일까지면 28일부터)
+        const prev_days = new Date(b.getFullYear(), b.getMonth(), 0).getDate()
+        days = prev_days - Math.min(a.getDate(), prev_days) + b.getDate()
+    }
+    if (months <= 0) return `${Math.max(days, 0) + 1}일째`
+    const parts = []
+    if (months >= 12) parts.push(`${Math.floor(months / 12)}년`)
+    if (months % 12) parts.push(`${months % 12}개월`)
+    if (days) parts.push(`${days}일`)
+    return `${parts.join(' ')}째`
+}
+
+// 내려받기: 글자를 파일로
+function downloadText(filename, text, type) {
+    const blob = new Blob([text], { type })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = filename
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+}
+
 class PartyNote {
     memos = []          // 저장된 메모 전부 (낱장 + 책 속의 쪽)
     books = []
@@ -261,7 +306,8 @@ class PartyNote {
             </button>`).join('')
 
         // 즐겨찾기가 맨 위, 그 안에서는 최근 고친 순
-        const list = in_tab(this.tab).sort((a, b) => (b.item.favorite ? 1 : 0) - (a.item.favorite ? 1 : 0) || b.item.updated_at - a.item.updated_at)
+        const rank = (r) => r.kind === 'book' ? BOOK_STATUS[statusOf(r.item)].order : 0 // 완결·연재 중지한 책은 뒤로
+        const list = in_tab(this.tab).sort((a, b) => (b.item.favorite ? 1 : 0) - (a.item.favorite ? 1 : 0) || rank(a) - rank(b) || b.item.updated_at - a.item.updated_at)
         const el = $('.item-list')
         if (list.length) {
             el.innerHTML = list.map(r => r.kind === 'book' ? this.bookRowHtml(r.item) : this.memoRowHtml(r.item)).join('')
@@ -291,12 +337,14 @@ class PartyNote {
 
     bookRowHtml(b) {
         const pages = this.pages(b.id)
+        const status = statusOf(b)
+        const closed = BOOK_STATUS[status].short
         return `
-            <div class="item-row book" data-book-id="${b.id}" tabindex="0" role="button">
+            <div class="item-row book" data-book-id="${b.id}" data-status="${status}" tabindex="0" role="button">
                 <i class="item-icon book-cover ${ICONS.book}" style="background:${this.coverColor(b)}"></i>
                 <div class="item-body">
                     <div class="item-title">${esc(b.title)}</div>
-                    <div class="item-sub clip">${pages.length ? `${pages.length}쪽 · ${esc(pages.map(p => p.title).join(', '))}` : '아직 빈 책이에요'}</div>
+                    <div class="item-sub clip">${closed ? `<i class="${BOOK_STATUS[status].icon}"></i> ${closed} · ` : ''}${pages.length ? `${pages.length}쪽 · ${esc(pages.map(p => p.title).join(', '))}` : '아직 빈 책이에요'}</div>
                 </div>
                 ${this.favoriteMarkHtml(b)}
                 <i class="item-arrow fas fa-chevron-right"></i>
@@ -371,6 +419,7 @@ class PartyNote {
             title: `<i class="${ICONS.book}"></i> ${esc(b.title)}`,
             actions: `
                 ${this.favoriteBtnHtml(b)}
+                <button type="button" class="icon-btn" data-action="book-info" aria-label="책 정보"><i class="fas fa-info-circle"></i></button>
                 <button type="button" class="icon-btn" data-action="book-rename" aria-label="책 제목 고치기"><i class="fas fa-pen"></i></button>
                 <button type="button" class="icon-btn" data-action="book-delete" aria-label="책 삭제"><i class="far fa-trash-alt"></i></button>`,
             content: `<div class="book-detail"></div>`,
@@ -387,7 +436,14 @@ class PartyNote {
         const pages = this.pages(b.id)
         const mark = pages.findIndex(p => p.id === b.bookmark_id)
         const loose = this.memos.some(m => !m.book_id)
+        const status = statusOf(b)
+        el.dataset.status = status
         el.innerHTML = `
+            ${status !== 'active' ? `
+                <div class="status-banner">
+                    <i class="${BOOK_STATUS[status].icon}"></i>
+                    <span>${BOOK_STATUS[status].label}이에요 · ${esc(fullDate(b.status_at))}</span>
+                </div>` : ''}
             <div class="book-head" style="--cover:${this.coverColor(b)}">
                 <div class="book-spine"><i class="${ICONS.book}"></i></div>
                 <div class="book-info">
@@ -415,6 +471,114 @@ class PartyNote {
                             <button type="button" class="icon-btn" data-page-more="${p.id}" aria-label="더 보기"><i class="fas fa-ellipsis-h"></i></button>
                         </li>`).join('')}
                 </ol>` : `<p class="book-empty">첫 쪽을 써 보세요. 낱장으로 써 둔 메모를 넣을 수도 있어요.</p>`}`
+    }
+
+    // 책 정보: 언제 만들었고 얼마나 써 왔는지. 아래에 내보내기와 완결·연재 중지·재개.
+    async openBookInfo() {
+        const b = this.book(this.open_book_id)
+        if (!b) return
+        const pages = this.pages(b.id)
+        const status = statusOf(b)
+        const end = status === 'active' ? Date.now() : b.status_at // 완결·중지했으면 기간도 거기서 멈춤
+        const day = (time) => new Date(new Date(time).toDateString()).getTime()
+        const total_days = Math.round((day(end) - day(b.created_at)) / 86400000) + 1
+        const period = `${periodLabel(b.created_at, end)}${total_days > 31 ? ` (${total_days}일)` : ''}`
+        const first = pages.length ? Math.min(...pages.map(p => p.created_at)) : 0
+        const last = pages.length ? Math.max(...pages.map(p => p.updated_at)) : 0
+        const chars = pages.reduce((sum, p) => sum + p.content.replace(/\s/g, '').length, 0)
+        const rows = [
+            ['far fa-calendar-plus', '처음 만든 날', fullDate(b.created_at)],
+            ['fas fa-feather-alt', '첫 쪽을 쓴 날', first ? fullDate(first) : '아직 없어요'],
+            ['fas fa-hourglass-half', status === 'active' ? '써 온 기간' : '쓴 기간', status === 'active' ? period : period.replace('째', '')],
+            ['fas fa-pen', '마지막으로 쓴 날', last ? fullDate(last) : '아직 없어요'],
+            ['fas fa-align-left', '분량', `${pages.length}쪽 · ${chars.toLocaleString('ko-KR')}자`],
+        ]
+        if (status !== 'active') rows.push([BOOK_STATUS[status].icon, status === 'done' ? '완결한 날' : '연재를 멈춘 날', fullDate(b.status_at)])
+        const choice = await ui.openSheet({
+            title: b.title,
+            content: `
+                <dl class="info-list">
+                    ${rows.map(([icon, label, value]) => `<div><dt><i class="${icon}"></i> ${label}</dt><dd>${esc(value)}</dd></div>`).join('')}
+                </dl>
+                <div class="status-actions">
+                    <button type="button" class="status-btn" data-sheet-value="export">
+                        <b><i class="fas fa-file-export"></i> 책 내보내기</b>
+                        <span>파일로 만들어 다른 파티노트 이용자에게 선물해요</span>
+                    </button>
+                    ${status === 'active' ? `
+                        <button type="button" class="status-btn done" data-sheet-value="done">
+                            <b><i class="fas fa-trophy"></i> 완결하기</b>
+                            <span>이야기를 끝까지 다 썼을 때</span>
+                        </button>
+                        <button type="button" class="status-btn stopped" data-sheet-value="stopped">
+                            <b><i class="fas fa-pause"></i> 연재 중지하기</b>
+                            <span>사정이 있어 쓰기를 멈추거나 그만둘 때</span>
+                        </button>` : `
+                        <button type="button" class="status-btn" data-sheet-value="active">
+                            <b><i class="fas fa-play"></i> 연재 재개하기</b>
+                            <span>${status === 'done' ? '완결' : '연재 중지'}을 취소하고 쓰는 중으로 되돌려요</span>
+                        </button>`}
+                </div>`,
+        })
+        if (choice === 'export') return this.exportBook()
+        if (choice) this.setBookStatus(choice)
+    }
+
+    // 완결(폭죽) / 연재 중지 / 재개
+    async setBookStatus(status) {
+        const b = this.book(this.open_book_id)
+        if (!b || !BOOK_STATUS[status] || statusOf(b) === status) return
+        b.status = status
+        b.status_at = status === 'active' ? 0 : Date.now()
+        await this.saveBookRecord(b)
+        this.render()
+        this.renderBook()
+        $('.popup-content').scrollTop = 0 // 맨 위의 상태 띠가 보이게
+        if (status === 'done') {
+            this.burstConfetti()
+            ui.toast('완결! 끝까지 쓰느라 수고했어요 🎉')
+        } else {
+            ui.toast(status === 'stopped' ? '연재를 멈췄어요' : '연재를 재개했어요')
+        }
+    }
+
+    // 폭죽 조각을 화면 가운데에서 사방으로 터뜨립니다. (기기의 '동작 줄이기' 설정과 상관없이)
+    burstConfetti() {
+        const colors = ['#FFD54F', '#FF8FAB', '#80D8FF', '#B9F6CA', '#EA80FC', '#FFAB40', '#FFF59D', '#F06292']
+        const layer = document.createElement('div')
+        layer.className = 'confetti-layer'
+        for (let i = 0; i < 72; i++) {
+            const piece = document.createElement('i')
+            const angle = Math.random() * Math.PI * 2
+            const dist = 90 + Math.random() * 220
+            piece.className = 'confetti'
+            piece.style.setProperty('--x', `${Math.cos(angle) * dist}px`)
+            piece.style.setProperty('--y', `${Math.sin(angle) * dist - 80}px`)
+            piece.style.setProperty('--r', `${Math.random() * 720 - 360}deg`)
+            piece.style.setProperty('--d', `${800 + Math.random() * 700}ms`)
+            piece.style.background = colors[i % colors.length]
+            if (i % 3 === 0) piece.style.borderRadius = '50%'
+            layer.appendChild(piece)
+        }
+        document.body.appendChild(layer)
+        setTimeout(() => layer.remove(), 1700)
+    }
+
+    // 책 한 권 내보내기: 다른 파티노트 이용자가 '가져오기'로 받을 수 있는 파일 (책 선물)
+    exportBook() {
+        const b = this.book(this.open_book_id)
+        if (!b) return
+        const pages = this.pages(b.id)
+        if (!pages.length) return ui.toast('아직 내보낼 쪽이 없어요')
+        const payload = this.backupPayload([b], pages)
+        payload.kind = 'book' // 전체 백업이 아니라 책 한 권이라는 표시 (받는 쪽 안내 문구용)
+        // 내 즐겨찾기·책갈피는 받는 사람에게 넘기지 않음
+        payload.books.forEach(x => { x.favorite = 0; x.bookmark_uid = '' })
+        payload.memos.forEach(x => { x.favorite = 0 })
+        // 파일 이름에 쓸 수 없는 글자는 뺌
+        const name = b.title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').trim().slice(0, 60) || 'book'
+        downloadText(`${name}.partynote.json`, JSON.stringify(payload, null, 2), 'application/json')
+        ui.toast(`'${b.title}' ${pages.length}쪽을 내보냈어요`)
     }
 
     async renameBook() {
@@ -718,23 +882,21 @@ class PartyNote {
     }
 
     /* ---------- 백업 ---------- */
-    exportBackup() {
+    // 백업 파일에 담을 내용. 기기마다 번호(id)가 달라서, 서로를 가리키는 값은 고유값(uid)으로 적어 둡니다.
+    backupPayload(books, memos) {
         const book_uid = new Map(this.books.map(b => [b.id, b.uid]))
         const memo_uid = new Map(this.memos.map(m => [m.id, m.uid]))
-        const payload = {
+        return {
             app: APP_CONFIG.app_alias,
             version: APP_CONFIG.app_version,
             exported_at: new Date().toISOString(),
-            // 기기마다 번호(id)가 달라서, 서로를 가리키는 값은 고유값(uid)으로 적어 둡니다.
-            books: this.books.map(({ id, bookmark_id, ...b }) => ({ ...b, bookmark_uid: memo_uid.get(bookmark_id) || '' })),
-            memos: this.memos.map(({ id, book_id, ...m }) => ({ ...m, book_uid: book_uid.get(book_id) || '' })),
+            books: books.map(({ id, bookmark_id, ...b }) => ({ ...b, bookmark_uid: memo_uid.get(bookmark_id) || '' })),
+            memos: memos.map(({ id, book_id, ...m }) => ({ ...m, book_uid: book_uid.get(book_id) || '' })),
         }
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(blob)
-        a.download = `partynote-${dateStamp()}.json`
-        a.click()
-        setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+    }
+
+    exportBackup() {
+        downloadText(`partynote-${dateStamp()}.json`, JSON.stringify(this.backupPayload(this.books, this.memos), null, 2), 'application/json')
         ui.toast(`메모 ${this.memos.length}개, 책 ${this.books.length}권을 내보냈어요`)
     }
 
@@ -747,7 +909,10 @@ class PartyNote {
         const title = text(raw.title, 100).trim()
         if (!title) return null
         const base = { uid: uid(raw.uid) || newUid(), title, favorite: raw.favorite ? 1 : 0, created_at: time(raw.created_at), updated_at: time(raw.updated_at) }
-        if (kind === 'book') return { ...idb.newRecord('book'), ...base, bookmark_uid: uid(raw.bookmark_uid) }
+        if (kind === 'book') {
+            const status = ['done', 'stopped'].includes(raw.status) ? raw.status : 'active'
+            return { ...idb.newRecord('book'), ...base, status, status_at: status === 'active' ? 0 : time(raw.status_at), bookmark_uid: uid(raw.bookmark_uid) }
+        }
         return { ...idb.newRecord('memo'), ...base, content: text(raw.content, 200000), order: Number.isFinite(raw.order) ? raw.order : 0, book_uid: uid(raw.book_uid) }
     }
 
@@ -765,7 +930,11 @@ class PartyNote {
         const books = payload.books.map(raw => this.cleanImported(raw, 'book')).filter(Boolean)
         const memos = payload.memos.map(raw => this.cleanImported(raw, 'memo')).filter(Boolean)
         if (!books.length && !memos.length) return ui.toast('가져올 내용이 없어요')
-        const ok = await ui.confirm(`백업의 메모 ${memos.length}개, 책 ${books.length}권을 지금 목록에 합칠까요?\n같은 기록은 더 최근에 고친 쪽을 남겨요.`, { ok: '합치기' })
+        // 책 한 권짜리 파일(책 내보내기로 만든 것)이면 선물 받는 안내로
+        const gift = payload.kind === 'book' && books.length === 1
+        const ok = gift
+            ? await ui.confirm(`'${books[0].title}' 책(${memos.length}쪽)을 받을까요?`, { ok: '받기' })
+            : await ui.confirm(`백업의 메모 ${memos.length}개, 책 ${books.length}권을 지금 목록에 합칠까요?\n같은 기록은 더 최근에 고친 쪽을 남겨요.`, { ok: '합치기' })
         if (!ok) return
 
         let added = 0, updated = 0
@@ -807,6 +976,14 @@ class PartyNote {
             await idb.doUpdate('book', book.id, book)
         }
         this.render()
+        if (gift) {
+            // 받은 책을 바로 펼쳐 보여 줌
+            const received = this.books.find(b => b.uid === books[0].uid)
+            ui.toast(added || updated ? `'${books[0].title}' 책을 받았어요` : '이미 받은 책이에요')
+            ui.setDrawer(false)
+            if (received) this.openBook(received.id)
+            return
+        }
         ui.toast(added || updated ? `${added}개 추가, ${updated}개 갱신했어요` : '이미 모두 들어 있어요')
     }
 

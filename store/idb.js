@@ -39,6 +39,8 @@ class IndexedDBClient {
                 title: '',
                 favorite: 0,
                 bookmark_id: 0,     // 마지막으로 읽은 쪽(메모 id). 0 = 없음
+                status: 'active',   // active(쓰는 중) | done(완결) | stopped(연재 중지)
+                status_at: 0,       // 완결·중지한 시각 (쓰는 중이면 0)
                 created_at: 0,
                 updated_at: 0,
             }
