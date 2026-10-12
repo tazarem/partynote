@@ -296,8 +296,8 @@ class PartyNote {
                         : r.kind === 'book')
         const tabs = [
             { value: 'all', label: '전체', icon: 'fas fa-layer-group' },
-            { value: 'memo', label: '메모', icon: ICONS.memo },
             { value: 'book', label: '책', icon: ICONS.book },
+            { value: 'memo', label: '메모', icon: ICONS.memo },
             { value: 'favorite', label: '', aria: '즐겨찾기', icon: 'fas fa-star' },
         ]
         $('.type-tabs').innerHTML = tabs.map(t => `
@@ -324,8 +324,8 @@ class PartyNote {
                     <i class="far fa-edit"></i>
                     <p>아직 ${what} 없어요.</p>
                     <div class="empty-btns">
-                        ${this.tab !== 'book' ? `<button type="button" class="btn primary" data-action="new-memo"><i class="${ICONS.memo}"></i> 메모 쓰기</button>` : ''}
-                        ${this.tab !== 'memo' ? `<button type="button" class="btn ${this.tab === 'book' ? 'primary' : 'ghost'}" data-action="new-book"><i class="${ICONS.book}"></i> 책 만들기</button>` : ''}
+                        ${this.tab !== 'memo' ? `<button type="button" class="btn primary" data-action="new-book"><i class="${ICONS.book}"></i> 책 만들기</button>` : ''}
+                        ${this.tab !== 'book' ? `<button type="button" class="btn ${this.tab === 'memo' ? 'primary' : 'ghost'}" data-action="new-memo"><i class="${ICONS.memo}"></i> 메모 쓰기</button>` : ''}
                     </div>
                 </div>`
         }
@@ -372,8 +372,8 @@ class PartyNote {
             title: '새로 만들기',
             content: `
                 <div class="sheet-options">
-                    <button type="button" class="sheet-option" data-sheet-value="memo"><i class="${ICONS.memo}"></i> 메모</button>
                     <button type="button" class="sheet-option" data-sheet-value="book"><i class="${ICONS.book}"></i> 책</button>
+                    <button type="button" class="sheet-option" data-sheet-value="memo"><i class="${ICONS.memo}"></i> 메모</button>
                 </div>`,
         })
         if (choice === 'memo') this.editMemo(null)
