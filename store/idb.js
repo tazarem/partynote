@@ -1,161 +1,149 @@
-let db //db와 obs(오브젝트 스토어. 테이블과 비슷합니다.), transaction 선언
-// 도움말 : 
-// https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore
-const DATABASE_NAME = "Partynote"
-const TABLE_LIST = [ //오프라인 테이블 리스트
-{
-    name:'note',
-    option: {keyPath: 'id', autoIncrement:true}
-}
-]
-/*
-,
-{
-    name:'note_info',
-    option: {keyPath: 'id', autoIncrement:true}
-}
-
-*/
-
-//indexedDB 지원여부 확인
-// if (!window.indexedDB){
-//     window.onload = () => {
-//         alert('indexedDB 를 지원하지 않는 브라우저입니다.')
-//     }
-//     }else{
-//     window.onload = () =>{
-//         idb.openDatabase()
-//     }
-// }
-
-let idb = (function(){
-    return{
-        openDatabase:()=>{
-            return new Promise((resolve,reject)=>{
-             //데이터베이스 열기
-            let req = indexedDB.open(DATABASE_NAME,1)
-            db = this.result    
-                req.onupgradeneeded=(e)=>{ //업그레이드 먼저 트리거 됨 e.oldVersion 이라는 변수가 존재하며 기존 데이터베이스의 버전을 가져와 비교를 하는 등 사용이 가능하다.
-                    console.log("indexedDB will upgrade.")
-                    db=e.target.result
-                    //오브젝트 스토어 및 테이블 만들기
-                    TABLE_LIST.forEach(table=>{
-                        idb.createTable(table.name,table.option)
-                    })
-                    resolve(db)
-                }
-                req.onsuccess=(e)=>{
-                    console.log("indexedDB Open Success.")
-                    db=e.target.result
-                    //업그레이드 필요시 업그레이드 후 오픈 성공
-                    resolve(db)
-                }
-                req.onerror=(e)=>{
-                    console.log("indexedDB Open Failed.")
-                    //에러 발생 시 DB 를 지우고 다시 할 것인가.
-                }
-            })
-        },
-        createTable:(tableName, detailOption)=>{
-            let obs = db.createObjectStore(tableName,detailOption)
-            if(obs){
-                console.log(`테이블 생성: ${tableName}`)
+/**
+ * IndexedDB Client - PartyNote
+ * 파티노트·레시피북의 IndexedDBClient 구조를 따릅니다.
+ */
+class IndexedDBClient {
+    db
+    // 예전 파티노트의 저장소('Partynote', 'partynote')와 겹치지 않는 새 이름. 옛 글은 note.js의 migrateLegacy가 옮겨 옵니다.
+    DATABASE_NAME = 'partynote_v1'
+    DATABASE_VERSION = 1
+    TABLE_LIST = [
+        {
+            // 메모 한 장. book_id가 0이면 낱장, 아니면 그 책의 한 쪽입니다.
+            name: 'memo',
+            option: { keyPath: 'id', autoIncrement: true },
+            indexes: [
+                { name: 'book_id', params: 'book_id', unique: false },
+                { name: 'updated_at', params: 'updated_at', unique: false },
+            ],
+            scheme: {
+                uid: '',            // 기기와 상관없는 고유값 (백업을 합칠 때 같은 기록인지 알아보는 용도)
+                title: '',
+                content: '',
+                book_id: 0,         // 들어 있는 책 (0 = 낱장)
+                order: 0,           // 책 안에서의 순서 (작을수록 앞쪽)
+                favorite: 0,        // 즐겨찾기 0 | 1
+                created_at: 0,
+                updated_at: 0,
             }
         },
-        doCrud: (order,tableName,command)=>{ //JSON 째로 등록할 수 있는 NOSQL
-            return new Promise((resolve,reject)=>{
-                // console.log(db)
-                let ts = db.transaction([tableName],"readwrite")
-                let obs = ts.objectStore(tableName)
-                let req
-                switch(order){
-                    case "insert":{ // 등록
-                        req = obs.add({val:command})
-                        req.onsuccess=()=>{
-                            resolve(1)
-                        }
-                        req.onerror=(e)=>{
-                            reject(`Data Input failed: ${e}`)
-                        }
-                    break}
-                    case "delete":{ // 삭제  //command = IDBKeyRange.bound(x, y) x<삭제 또는 셀렉트할 키값<y
-                        req = obs.delete(command)
-                        req.onsuccess= ()=>{
-                            resolve(1)
-                        }
-                        req.onerror =(e)=>{
-                            reject(`Data Delete failed: ${e}`)
-                        }
-                    break}
-                    case "update":{ // 수정
-                        console.log(command)
-                        req = obs.put(command) //item,key
-                        req.onsuccess= ()=>{
-                            resolve(1)
-                        }
-                        req.onerror =(e)=>{
-                            reject(`Data Update failed: ${e}`)
-                        }
-                    break}
-                    case "select":{ // 조회 (키레인지,카운트) 키레인지는 키 독단만 셀렉트할수있습니다. 공백을 전달하면 전체를 가져옴
-                         req=obs.getAll(command)
-                        req.onsuccess= ()=>{
-                            resolve(req.result)
-                        }
-                        req.onerror =(e)=>{
-                            reject(`Data Select failed: ${e}`)
-                        }
-                    break}
-                    case "clearAll":{ // 테이블 비우기
-                        req=obs.clear()
-                        req.onsuccess= ()=>{
-                            resolve(1)
-                        }
-                        req.onerror =(e)=>{
-                            reject(`Data Table Clear failed: ${e}`)
-                        }
-                    break}
-                }
-            })
-        
+        {
+            // 책: 메모를 순서대로 묶은 것. 쪽들은 memo 표에서 book_id로 찾습니다.
+            name: 'book',
+            option: { keyPath: 'id', autoIncrement: true },
+            indexes: [
+                { name: 'updated_at', params: 'updated_at', unique: false },
+            ],
+            scheme: {
+                uid: '',
+                title: '',
+                favorite: 0,
+                bookmark_id: 0,     // 마지막으로 읽은 쪽(메모 id). 0 = 없음
+                created_at: 0,
+                updated_at: 0,
+            }
         },
-        ddlDatabase:(order,tableName)=>{
-            return new Promise((reject,resolve)=>{
-                switch(order){
-                    case "dropAll":{ // 데이터베이스 드랍
-                        db.close ()
-                        console.log('DB closed..')
-                        let req = window.indexedDB.deleteDatabase(DATABASE_NAME)
-                        req.onsuccess=()=>{
-                            console.log('delete DB success.')
+        {
+            // 앱이 기억해 둘 작은 값들 (예: 예전 파티노트 글을 이미 가져왔는지)
+            name: 'meta',
+            option: { keyPath: 'key' },
+            indexes: [],
+            scheme: { key: '', value: null }
+        },
+    ]
+
+    openDatabase() {
+        return new Promise((res, rej) => {
+            const req = indexedDB.open(this.DATABASE_NAME, this.DATABASE_VERSION)
+
+            req.onupgradeneeded = (e) => {
+                this.db = e.target.result
+                const transaction = e.target.transaction
+                this.TABLE_LIST.forEach((table) => {
+                    const store = this.db.objectStoreNames.contains(table.name)
+                        ? transaction.objectStore(table.name)
+                        : this.db.createObjectStore(table.name, table.option)
+                    table.indexes.forEach((index) => {
+                        if (!store.indexNames.contains(index.name)) {
+                            store.createIndex(index.name, index.params, { unique: index.unique, multiEntry: !!index.multiEntry })
                         }
-                        req.onerror=(e)=>{
-                            console.log(`delete DB failed.: ${e}`)
-                        }
-                    break}
-                    case "dropTable":{
-                        db.close()
-                        console.log('DB closed..')
-                        let req = window.indexedDB.deleteObjectStore(tableName)
-                        req.onsuccess=()=>{
-                            console.log('delete Table success.')
-                        }
-                        req.onerror=(e)=>{
-                            console.log(`delete Table failed.: ${e}`)
-                        }
-                    break }
-                    case "create":{ // 테이블 만들기
-                        idb.openDatabase()
-                    break}
+                    })
+                })
+            }
+            req.onsuccess = (e) => {
+                this.db = e.target.result
+                // 다른 탭에서 새 버전으로 업그레이드하려 하면 이 연결을 닫고 새로고침합니다.
+                this.db.onversionchange = () => {
+                    this.db.close()
+                    location.reload()
                 }
-            })
-        }
+                res(this.db)
+            }
+            req.onblocked = () => {
+                console.log('indexedDB upgrade blocked: 다른 탭에 열린 파티노트가 있어요.')
+            }
+            req.onerror = (e) => rej(e)
+        })
     }
 
-})()
+    newRecord(table_name) {
+        const table = this.TABLE_LIST.find(t => t.name === table_name)
+        return structuredClone(table.scheme)
+    }
 
-// export default {
-//     DATABASE_NAME,
-//     TABLE_LIST,
-//     idb
-// }
+    requestHandler(req) {
+        return new Promise((res, rej) => {
+            req.onsuccess = (e) => res(e.target.result)
+            req.onerror = (e) => rej(e.target.error)
+        })
+    }
+
+    store(table_name, mode = 'readonly') {
+        return this.db.transaction([table_name], mode).objectStore(table_name)
+    }
+
+    doInsert(table_name, value) {
+        const record = { ...value }
+        delete record.id // autoIncrement 키를 받도록
+        return this.requestHandler(this.store(table_name, 'readwrite').add(record))
+    }
+
+    doUpdate(table_name, id, value) {
+        return this.requestHandler(this.store(table_name, 'readwrite').put({ ...value, id }))
+    }
+
+    doDelete(table_name, id) {
+        return this.requestHandler(this.store(table_name, 'readwrite').delete(id))
+    }
+
+    doSelectOne(table_name, id) {
+        return this.requestHandler(this.store(table_name).get(id))
+    }
+
+    doSelectAll(table_name) {
+        return this.requestHandler(this.store(table_name).getAll())
+    }
+
+    doSelectByIndex(table_name, index_name, value) {
+        return this.requestHandler(this.store(table_name).index(index_name).getAll(value))
+    }
+
+    // meta 표: 키 하나에 값 하나
+    async getMeta(key) {
+        return (await this.requestHandler(this.store('meta').get(key)))?.value
+    }
+
+    setMeta(key, value) {
+        return this.requestHandler(this.store('meta', 'readwrite').put({ key, value }))
+    }
+
+    doCountTotal(table_name) {
+        return this.requestHandler(this.store(table_name).count())
+    }
+
+    doTruncate(table_name) {
+        return this.requestHandler(this.store(table_name, 'readwrite').clear())
+    }
+}
+
+const idb = new IndexedDBClient()
