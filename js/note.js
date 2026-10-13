@@ -54,11 +54,16 @@ function dateStamp(d = new Date()) {
     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
 }
 
-// 임시 저장 시각: '2026.10.13 오후 2:02'
+// 임시 저장한 때: 오늘이면 '오늘 오후 2:05:32', 어제면 '어제 오후 2:05:32', 더 예전이면 '2026.10.10 오후 2:05:32'
 function draftTimeLabel(time) {
     const d = new Date(time)
+    const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+    const days_ago = Math.round((day(new Date()) - day(d)) / 86400000)
+    const date = days_ago === 0 ? '오늘' : days_ago === 1 ? '어제'
+        : `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
     const h = d.getHours()
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${date} ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
 function dateTimeLabel(time) {
@@ -143,6 +148,7 @@ class PartyNote {
     memo_base = null    // 메모 편집을 시작할 때의 값 (바뀌었는지 비교용)
     edit_book_id = 0    // 새 메모를 저장할 때 넣을 책 (0 = 낱장)
     draft_mine = false  // 지금 편집 화면이 임시 저장의 주인인지 (다른 글의 임시 저장을 실수로 지우지 않기 위함)
+    draft_saved = null  // 이 화면에서 마지막으로 임시 저장한 것: { at, title, content } (상태 표시와, 바뀐 게 없을 때 다시 쓰지 않기 위함)
     draft_kept = null   // 이 화면이 덮어쓰기 직전에 임시 저장소에 있던 글 (편집 화면을 떠나기 전까지는 불러올 수 있게 잠깐 들고 있음)
 
     async init() {
@@ -851,6 +857,7 @@ class PartyNote {
         this.memo_base = { title: m?.title || '', content: m?.content || '' }
         this.draft_mine = false
         this.draft_kept = null
+        this.draft_saved = null
         ui.openPopup({
             title: m ? '메모 고치기' : b ? '새 쪽 쓰기' : '메모 쓰기',
             // 임시 저장 상태: 글이 길어져도 늘 보이도록 위쪽 고정 줄에 둠
@@ -877,13 +884,25 @@ class PartyNote {
         // 쓰는 동안 8초에 한 번 임시 저장 (편집 화면을 떠나면 writeDraft가 알아서 멈춤)
         clearInterval(this.draft_timer)
         this.draft_timer = setInterval(() => this.writeDraft(), DRAFT_INTERVAL)
+        // 자정을 넘기면 '오늘'이 '어제'로 바뀌어야 하므로 가끔 다시 적음
+        clearInterval(this.draft_tick)
+        this.draft_tick = setInterval(() => this.renderDraftStatus(), 30000)
     }
 
-    // 편집 화면을 떠나도 되는지: 바뀐 게 없으면 바로, 있으면 물어봄. 버리기로 하면 임시 저장도 지움.
+    // 위쪽 고정 줄의 임시 저장 상태
+    renderDraftStatus(message = null) {
+        const status = $('.draft-status')
+        if (!status) return clearInterval(this.draft_tick) // 편집 화면이 아님: 정지
+        if (message !== null) this.draft_message = message
+        // 저장한 적이 있으면 그 시각, 없으면 안내 문구(불러왔어요 등)나 빈칸
+        status.textContent = this.draft_saved ? `${draftTimeLabel(this.draft_saved.at)}에 임시 저장됨` : (this.draft_message || '')
+    }
+
+    // 편집 화면을 떠나도 되는지: 바뀐 게 없으면 바로, 있으면 물어봄.
+    // 버리기로 해도 임시 저장소에는 남깁니다. (그냥 화면을 벗어나려고 닫았을 수도 있어서. 저장 버튼을 눌렀을 때만 비움)
     async confirmDiscard() {
-        const changed = this.memoChanged()
-        if (changed && !(await ui.confirm('쓰던 내용을 버릴까요?', { ok: '버리기', cancel: '계속 쓰기', danger: true }))) return false
-        if (changed || this.draft_mine) this.clearDraft()
+        if (this.memoChanged() && !(await ui.confirm('쓰던 내용을 버릴까요?\n임시 저장소에는 남아 있어서 다시 불러올 수 있어요.', { ok: '버리기', cancel: '계속 쓰기', danger: true }))) return false
+        this.writeDraft() // 마지막 8초 사이에 쓴 것까지 임시 저장소에
         return true
     }
 
@@ -911,7 +930,7 @@ class PartyNote {
         if (!zone) return
         const d = this.draft_kept || (this.draft_mine ? null : this.readDraft())
         zone.innerHTML = d
-            ? `<button type="button" class="text-btn draft-load" data-action="draft-load"><i class="fas fa-history"></i> 임시 저장한 글 불러오기 (${esc(dateTimeLabel(d.saved_at))})</button>`
+            ? `<button type="button" class="text-btn draft-load" data-action="draft-load"><i class="fas fa-history"></i> 임시 저장한 글 불러오기 (${esc(draftTimeLabel(d.saved_at))})</button>`
             : ''
     }
 
@@ -933,7 +952,8 @@ class PartyNote {
         this.draft_mine = true // 이제 이 화면이 임시 저장의 주인 (이어서 8초마다 덮어씀)
         this.draft_kept = null
         this.renderDraftLink()
-        $('.draft-status').textContent = '임시 저장한 글을 불러왔어요'
+        this.draft_saved = null
+        this.renderDraftStatus('임시 저장한 글을 불러왔어요')
     }
 
     // 지금 편집 화면의 내용을 임시 저장. 편집 중이 아니면 아무것도 안 함.
@@ -942,10 +962,12 @@ class PartyNote {
         if (!this.memo_base || !title || !content) return clearInterval(this.draft_timer) // 편집 화면이 아님: 타이머 정지
         if (!this.memoChanged()) {
             if (this.draft_mine) this.clearDraft() // 원래대로 되돌렸으면 남길 것이 없음
-            return
+            this.draft_saved = null
+            return this.renderDraftStatus('')
         }
+        // 마지막 임시 저장 뒤로 바뀐 게 없으면 다시 쓰지 않음 → 표시된 시각이 마지막으로 바뀐 내용을 저장한 때를 가리킴
+        if (this.draft_saved && this.draft_saved.title === title.value && this.draft_saved.content === content.value) return
         const m = this.open_memo_id ? this.memo(this.open_memo_id) : null
-        const status = $('.draft-status')
         // 임시 저장소는 하나뿐이라 예전에 쓰다 만 글은 여기서 덮어써짐. 이 화면에 있는 동안은 불러올 수 있게 들고 있음
         if (!this.draft_mine && !this.draft_kept) this.draft_kept = this.readDraft()
         try {
@@ -957,10 +979,12 @@ class PartyNote {
                 saved_at: Date.now(),
             }))
             this.draft_mine = true
+            this.draft_saved = { at: Date.now(), title: title.value, content: content.value }
             this.renderDraftLink()
-            if (status) status.textContent = `${draftTimeLabel(Date.now())} 임시 저장됨`
+            this.renderDraftStatus()
         } catch (e) {
-            if (status) status.textContent = '임시 저장을 못 했어요'
+            this.draft_saved = null
+            this.renderDraftStatus('임시 저장을 못 했어요')
         }
     }
 
