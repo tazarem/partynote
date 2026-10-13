@@ -824,3 +824,9 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 @media (max-width: 350px) {
     .draft-status { display: block; max-width: 8.2rem; white-space: normal; text-align: right; line-height: 1.25; font-size: .7rem; word-break: keep-all; }
 }
+
+/* 잠근 책 표시 */
+.book-lock { font-size: .7em; opacity: .55; margin-left: .15rem; vertical-align: .05em; }
+
+/* 편집 화면: 내용 칸 아래의 글자 수·크기 */
+.memo-count { margin-top: -.25rem; font-family: system-ui, sans-serif; font-size: .74rem; color: var(--sub); text-align: right; }

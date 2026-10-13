@@ -146,6 +146,7 @@ class PartyNoteInit {
         // 메모 내용 칸은 쓰는 만큼 늘어나고 지우면 줄어듭니다.
         popup.addEventListener('input', (e) => {
             if (e.target.matches('.memo-content-input')) autoGrow(e.target)
+            if (e.target.matches('.memo-title-input, .memo-content-input')) party_note.renderMemoCount()
         })
         // 임시 저장은 쓰는 동안 8초에 한 번(note.js). 앱이 닫히거나 뒤로 숨겨질 때는 기다리지 않고 바로 저장
         document.addEventListener('visibilitychange', () => {

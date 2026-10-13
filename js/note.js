@@ -362,7 +362,7 @@ class PartyNote {
             <div class="item-row book" data-book-id="${b.id}" data-status="${status}" tabindex="0" role="button">
                 <i class="item-icon book-cover ${ICONS.book}" style="background:${this.coverColor(b)}"></i>
                 <div class="item-body">
-                    <div class="item-title">${esc(b.title)}</div>
+                    <div class="item-title">${esc(b.title)}${b.locked ? ` <i class="book-lock fas fa-lock" aria-label="잠근 책"></i>` : ''}</div>
                     <div class="item-sub clip">${closed ? `<i class="${BOOK_STATUS[status].icon}"></i> ${closed} · ` : ''}${pages.length ? `${pages.length}쪽 · ${esc(pages.map(p => p.title).join(', '))}` : '아직 빈 책이에요'}</div>
                 </div>
                 ${this.favoriteMarkHtml(b)}
@@ -436,14 +436,19 @@ class PartyNote {
         this.memo_base = null
         ui.openPopup({
             title: `<i class="${ICONS.book}"></i> ${esc(b.title)}`,
-            actions: `
-                ${this.favoriteBtnHtml(b)}
-                <button type="button" class="icon-btn" data-action="book-info" aria-label="책 정보"><i class="fas fa-info-circle"></i></button>
-                <button type="button" class="icon-btn" data-action="book-rename" aria-label="책 제목 고치기"><i class="fas fa-pen"></i></button>
-                <button type="button" class="icon-btn" data-action="book-delete" aria-label="책 삭제"><i class="far fa-trash-alt"></i></button>`,
+            actions: this.bookActionsHtml(b),
             content: `<div class="book-detail"></div>`,
         })
         this.renderBook()
+    }
+
+    // 책 화면 위쪽의 버튼들. 잠근 책은 삭제(쓰레기통) 버튼을 숨깁니다.
+    bookActionsHtml(b) {
+        return `
+            ${this.favoriteBtnHtml(b)}
+            <button type="button" class="icon-btn" data-action="book-info" aria-label="책 정보"><i class="fas fa-info-circle"></i></button>
+            <button type="button" class="icon-btn" data-action="book-rename" aria-label="책 제목 고치기"><i class="fas fa-pen"></i></button>
+            ${b.locked ? '' : `<button type="button" class="icon-btn" data-action="book-delete" aria-label="책 삭제"><i class="far fa-trash-alt"></i></button>`}`
     }
 
     // 열려 있는 책의 내용만 다시 그립니다. (스크롤 위치는 그대로)
@@ -470,7 +475,7 @@ class PartyNote {
             <div class="book-head" style="--cover:${this.coverColor(b)}">
                 <div class="book-spine"><i class="${ICONS.book}"></i></div>
                 <div class="book-info">
-                    <h2 class="book-title">${esc(b.title)}</h2>
+                    <h2 class="book-title">${esc(b.title)}${b.locked ? ` <i class="book-lock fas fa-lock" aria-label="잠근 책"></i>` : ''}</h2>
                     <div class="book-meta">${pages.length ? `${pages.length}쪽` : '아직 빈 책이에요'} · ${esc(dateTimeLabel(b.created_at))}에 만듦</div>
                 </div>
             </div>
@@ -532,6 +537,10 @@ class PartyNote {
                         <b><i class="fas fa-file-export"></i> 책 내보내기</b>
                         <span>파일로 만들어 다른 파티노트 이용자에게 선물해요</span>
                     </button>
+                    <button type="button" class="status-btn" data-sheet-value="${b.locked ? 'unlock' : 'lock'}">
+                        <b><i class="fas ${b.locked ? 'fa-lock-open' : 'fa-lock'}"></i> ${b.locked ? '잠금 풀기' : '책 잠그기'}</b>
+                        <span>${b.locked ? '삭제 버튼이 다시 보여요' : '실수로 지우지 않게 삭제 버튼을 숨겨요'}</span>
+                    </button>
                     ${status === 'active' ? `
                         <button type="button" class="status-btn done" data-sheet-value="done">
                             <b><i class="fas fa-trophy"></i> 완결하기</b>
@@ -548,7 +557,21 @@ class PartyNote {
                 </div>`,
         })
         if (choice === 'export') return this.exportBook()
+        if (choice === 'lock' || choice === 'unlock') return this.setBookLock(choice === 'lock')
         if (choice) this.setBookStatus(choice)
+    }
+
+    // 책 잠금: 잠그면 삭제 버튼이 숨겨짐 (글을 쓰고 고치는 것은 그대로)
+    async setBookLock(locked) {
+        const b = this.book(this.open_book_id)
+        if (!b) return
+        b.locked = locked ? 1 : 0
+        await this.saveBookRecord(b, { touch: false })
+        this.render()
+        this.renderBook()
+        const actions = $('.popup-header .actions')
+        if (actions && $('.book-detail')) actions.innerHTML = this.bookActionsHtml(b)
+        ui.toast(locked ? '책을 잠갔어요' : '잠금을 풀었어요')
     }
 
     // 완결(폭죽) / 연재 중지 / 재개
@@ -600,7 +623,7 @@ class PartyNote {
         const payload = this.backupPayload([b], pages)
         payload.kind = 'book' // 전체 백업이 아니라 책 한 권이라는 표시 (받는 쪽 안내 문구용)
         // 내 즐겨찾기·책갈피는 받는 사람에게 넘기지 않음
-        payload.books.forEach(x => { x.favorite = 0; x.bookmark_uid = '' })
+        payload.books.forEach(x => { x.favorite = 0; x.bookmark_uid = ''; x.locked = 0 }) // 잠금도 내 기기의 설정이라 넘기지 않음
         payload.memos.forEach(x => { x.favorite = 0 })
         // 파일 이름에 쓸 수 없는 글자는 뺌
         const name = b.title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').trim().slice(0, 60) || 'book'
@@ -629,6 +652,7 @@ class PartyNote {
     async deleteBook() {
         const b = this.book(this.open_book_id)
         if (!b) return
+        if (b.locked) return ui.toast('잠근 책이에요. 책 정보에서 잠금을 풀어 주세요')
         const pages = this.pages(b.id)
         let with_pages = false
         if (pages.length) {
@@ -870,6 +894,7 @@ class PartyNote {
                     </div>
                     <input type="text" class="memo-title-input" placeholder="제목" maxlength="100" autocomplete="off" value="${esc(this.memo_base.title)}">
                     <textarea class="memo-content-input" rows="10" placeholder="짧은 이야기를 적어 보세요">${esc(this.memo_base.content)}</textarea>
+                    <div class="memo-count" aria-live="off"></div>
                     <div class="editor-btns">
                         <button type="button" class="btn ghost" data-action="memo-cancel">취소</button>
                         <button type="submit" class="btn primary"><i class="fas fa-check"></i> 저장</button>
@@ -881,12 +906,25 @@ class PartyNote {
         autoGrow($('.memo-content-input'))
         $(m ? '.memo-content-input' : '.memo-title-input').focus()
         this.renderDraftLink()
+        this.renderMemoCount()
         // 쓰는 동안 8초에 한 번 임시 저장 (편집 화면을 떠나면 writeDraft가 알아서 멈춤)
         clearInterval(this.draft_timer)
         this.draft_timer = setInterval(() => this.writeDraft(), DRAFT_INTERVAL)
         // 자정을 넘기면 '오늘'이 '어제'로 바뀌어야 하므로 가끔 다시 적음
         clearInterval(this.draft_tick)
         this.draft_tick = setInterval(() => this.renderDraftStatus(), 30000)
+    }
+
+    // 내용 칸 아래의 글자 수와 대략의 크기. (글자 수는 책 정보의 분량처럼 공백을 뺀 수, 크기는 제목+내용을 저장할 때의 바이트 수)
+    renderMemoCount() {
+        const el = $('.memo-count'), title = $('.memo-title-input'), content = $('.memo-content-input')
+        if (!el || !title || !content) return
+        const chars = content.value.replace(/\s/g, '').length
+        const with_space = content.value.length
+        const kb = new TextEncoder().encode(title.value + content.value).length / 1024
+        // 대략의 크기: 0.5KB, 15KB, 1.2MB 처럼
+        const size = kb < 0.05 ? '0KB' : kb < 10 ? `${kb.toFixed(1)}KB` : kb < 1024 ? `${Math.round(kb)}KB` : `${(kb / 1024).toFixed(1)}MB`
+        el.textContent = `${chars.toLocaleString('ko-KR')}자 (공백 포함 ${with_space.toLocaleString('ko-KR')}자) · 약 ${size}`
     }
 
     // 위쪽 고정 줄의 임시 저장 상태
@@ -949,6 +987,7 @@ class PartyNote {
         content.value = d.content
         autoGrow(content)
         content.focus()
+        this.renderMemoCount()
         this.draft_mine = true // 이제 이 화면이 임시 저장의 주인 (이어서 8초마다 덮어씀)
         this.draft_kept = null
         this.renderDraftLink()
@@ -1059,7 +1098,7 @@ class PartyNote {
         const base = { uid: uid(raw.uid) || newUid(), title, favorite: raw.favorite ? 1 : 0, created_at: time(raw.created_at), updated_at: time(raw.updated_at) }
         if (kind === 'book') {
             const status = ['done', 'stopped'].includes(raw.status) ? raw.status : 'active'
-            return { ...idb.newRecord('book'), ...base, status, status_at: status === 'active' ? 0 : time(raw.status_at), bookmark_uid: uid(raw.bookmark_uid) }
+            return { ...idb.newRecord('book'), ...base, status, status_at: status === 'active' ? 0 : time(raw.status_at), locked: raw.locked ? 1 : 0, bookmark_uid: uid(raw.bookmark_uid) }
         }
         return { ...idb.newRecord('memo'), ...base, content: text(raw.content, 200000), order: Number.isFinite(raw.order) ? raw.order : 0, book_uid: uid(raw.book_uid) }
     }
