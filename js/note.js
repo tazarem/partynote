@@ -791,12 +791,16 @@ class PartyNote {
                             <i class="fas fa-chevron-left"></i> <i class="${ICONS.book}"></i> <span class="clip">${esc(b.title)}</span>
                             <span class="crumb-no">${index + 1} / ${pages.length}쪽</span>
                         </button>` : ''}
-                    <h2 class="memo-title">${esc(m.title)}</h2>
+                    <div class="memo-head">
+                        <h2 class="memo-title">${esc(m.title)}</h2>
+                        ${m.content.trim() ? `<button type="button" class="text-btn memo-copy" data-action="memo-copy"><i class="far fa-copy"></i> 본문 복사</button>` : ''}
+                    </div>
                     ${m.content.trim() ? `<div class="memo-content">${linkify(m.content)}</div>` : `<p class="book-empty">내용이 없어요</p>`}
                     <div class="memo-date">${esc(dateTimeLabel(m.updated_at))} 수정</div>
                     ${b ? `
                         <div class="page-nav">
                             <button type="button" class="btn ghost" ${index > 0 ? `data-page-open="${pages[index - 1].id}"` : 'disabled'}><i class="fas fa-chevron-left"></i> 앞쪽</button>
+                            <span class="page-nav-no">${index + 1} / ${pages.length}쪽</span>
                             <button type="button" class="btn ghost" ${index < pages.length - 1 ? `data-page-open="${pages[index + 1].id}"` : 'disabled'}>뒤쪽 <i class="fas fa-chevron-right"></i></button>
                         </div>` : ''}
                 </div>`,
@@ -806,6 +810,29 @@ class PartyNote {
             b.bookmark_id = m.id
             await this.saveBookRecord(b, { touch: false })
         }
+    }
+
+    // 메모의 내용을 클립보드로 (연재처의 글쓰기 칸에 붙여넣는 용도). 제목은 빼고 내용만, 줄바꿈 그대로.
+    async copyMemoContent() {
+        const m = this.memo(this.open_memo_id)
+        if (!m) return
+        let ok = false
+        try {
+            await navigator.clipboard.writeText(m.content)
+            ok = true
+        } catch (e) {
+            // 클립보드 기능이 막힌 환경: 보이지 않는 입력칸에 넣어 복사
+            const area = document.createElement('textarea')
+            area.value = m.content
+            area.setAttribute('readonly', '')
+            area.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'
+            document.body.appendChild(area)
+            area.select()
+            try { ok = document.execCommand('copy') } catch (e2) { }
+            area.remove()
+        }
+        const chars = m.content.replace(/\s/g, '').length.toLocaleString('ko-KR')
+        ui.toast(ok ? `본문을 복사했어요 (${chars}자)` : '복사하지 못했어요. 본문을 길게 눌러 직접 복사해 주세요')
     }
 
     // 메모의 … 버튼: 책에 넣기(옮기기) / 책에서 빼기 / 삭제

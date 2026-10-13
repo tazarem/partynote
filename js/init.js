@@ -121,6 +121,7 @@ class PartyNoteInit {
                     case 'page-pick': return party_note.pickLooseMemo()
                     case 'back-to-book': return party_note.openBook(party_note.open_book_id)
                     case 'memo-edit': return party_note.editMemo(party_note.open_memo_id)
+                    case 'memo-copy': return party_note.copyMemoContent()
                     case 'memo-more': return party_note.openMemoMenu()
                     case 'draft-load': return party_note.loadDraft()
                     case 'memo-cancel': return party_note.cancelMemoEdit()

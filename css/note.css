@@ -830,3 +830,27 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 
 /* 편집 화면: 내용 칸 아래의 글자 수·크기 */
 .memo-count { margin-top: -.25rem; font-family: system-ui, sans-serif; font-size: .74rem; color: var(--sub); text-align: right; }
+
+/* 메모 조회: 제목 오른쪽의 '본문 복사' */
+.memo-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.memo-head .memo-title { margin: 0; min-width: 0; }
+.memo-copy { flex-shrink: 0; white-space: nowrap; margin-top: .3rem; padding: .1rem 0; text-decoration: none; }
+.memo-copy i { margin-right: .1rem; }
+
+/* 쪽 넘기기 줄: 글이 길어도 화면 아래에 붙어 있음 (글이 짧으면 팝업 맨 아래) */
+.memo-view { min-height: 100%; display: flex; flex-direction: column; }
+.memo-view .page-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    align-items: center;
+    /* 팝업 안쪽 여백(1rem)을 지나 양옆까지 채움. 바닥 여백은 아래 :has 규칙으로 없앰 */
+    margin: auto -1rem 0;
+    padding: .6rem 1rem calc(.6rem + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+}
+/* 쪽 넘기기 줄이 있는 화면은 팝업의 바닥 여백을 없애 줄이 바닥에 딱 붙게 */
+.popup-content:has(.memo-view .page-nav) { padding-bottom: 0; }
+.memo-view .memo-date { margin-bottom: 1.25rem; }
+.page-nav-no { font-family: system-ui, sans-serif; font-size: .78rem; color: var(--sub); }
