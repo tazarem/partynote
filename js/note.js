@@ -892,7 +892,7 @@ class PartyNote {
                         ${b ? `<div class="editor-book"><i class="${ICONS.book}"></i> ${esc(b.title)}</div>` : ''}
                         <span class="draft-load-zone"></span>
                     </div>
-                    <input type="text" class="memo-title-input" placeholder="제목" maxlength="100" autocomplete="off" value="${esc(this.memo_base.title)}">
+                    <input type="text" class="memo-title-input" placeholder="제목 (비워 두면 '${esc(this.defaultTitle(m, this.edit_book_id))}')" maxlength="100" autocomplete="off" value="${esc(this.memo_base.title)}">
                     <textarea class="memo-content-input" rows="10" placeholder="짧은 이야기를 적어 보세요">${esc(this.memo_base.content)}</textarea>
                     <div class="memo-count" aria-live="off"></div>
                     <div class="editor-btns">
@@ -1035,13 +1035,14 @@ class PartyNote {
 
     async saveMemo() {
         const content = $('.memo-content-input').value
-        // 제목을 비우면 내용의 첫 줄을 제목으로
-        const title = $('.memo-title-input').value.trim() || content.trim().split('\n')[0].slice(0, 100)
-        if (!title) {
+        let m = this.open_memo_id ? this.memo(this.open_memo_id) : null
+        let title = $('.memo-title-input').value.trim()
+        if (!title && !content.trim()) {
             ui.toast('제목이나 내용을 적어 주세요')
             return $('.memo-title-input').focus()
         }
-        let m = this.open_memo_id ? this.memo(this.open_memo_id) : null
+        // 제목을 비우면 자동으로 붙임: 낱장은 '무제1', 책의 쪽은 '1편'
+        if (!title) title = this.defaultTitle(m, this.edit_book_id)
         if (m) {
             m.title = title
             m.content = content
@@ -1056,6 +1057,20 @@ class PartyNote {
         this.render()
         ui.toast('저장했어요')
         this.openMemo(m.id)
+    }
+
+    // 제목을 비웠을 때 붙일 이름.
+    // - 책의 쪽: 그 쪽의 번호로 '3편' (새 쪽이면 맨 뒤 번호)
+    // - 낱장 메모: '무제1', '무제2' … (지금 있는 낱장의 무제 번호 중 가장 큰 것 다음)
+    defaultTitle(memo, book_id) {
+        const b = book_id ? this.book(book_id) : null
+        if (b) {
+            const pages = this.pages(b.id)
+            const index = memo ? pages.findIndex(p => p.id === memo.id) : -1
+            return `${index >= 0 ? index + 1 : pages.length + 1}편`
+        }
+        const used = this.memos.filter(x => !x.book_id && x !== memo).map(x => /^무제(\d+)$/.exec(x.title)).filter(Boolean).map(r => Number(r[1]))
+        return `무제${Math.max(0, ...used) + 1}`
     }
 
     // 편집 취소: 고치던 메모면 조회 화면으로, 책에 쓰던 새 쪽이면 책으로, 새 낱장이면 닫기

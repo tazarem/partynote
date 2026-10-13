@@ -1,5 +1,5 @@
 const APP_CONFIG = {
-    app_version: `1.08`,
+    app_version: `1.09`,
     app_name: `PartyNote`,
     app_alias: `partynote`,
 }
