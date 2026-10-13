@@ -805,3 +805,22 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
     input:not([type="radio"]):not([type="checkbox"]):not([type="file"]), textarea, select { font-size: 16px !important; }
     .memo-title-input { font-size: 1.1rem !important; }
 }
+
+/* 쪽 정렬 (책 상세의 버튼 줄 오른쪽 끝) */
+.page-sort { margin-left: auto; align-self: center; text-decoration: none; white-space: nowrap; }
+.page-sort i { font-size: 1.05em; margin-right: .15rem; }
+
+/* 임시 저장 상태 (편집 화면의 버튼 줄 왼쪽) */
+/* 팝업 위쪽 고정 줄의 닫기 버튼 왼쪽 */
+.draft-status { font-size: .74rem; color: var(--sub); white-space: nowrap; padding-right: .25rem; }
+.popup-header:has(.draft-status) .title { flex-shrink: 0; }
+.popup-header:has(.draft-status) .right-position { min-width: 0; }
+.popup-header:has(.draft-status) .actions { min-width: 0; overflow: hidden; }
+.editor-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-height: 0; }
+.editor-top:has(.draft-load) { min-height: 1.6rem; }
+.draft-load-zone { margin-left: auto; }
+.draft-load { color: var(--text); text-decoration-color: var(--accent); text-decoration-thickness: 2px; padding: 0; }
+/* 아주 좁은 화면: 임시 저장 상태를 두 줄로 */
+@media (max-width: 350px) {
+    .draft-status { display: block; max-width: 8.2rem; white-space: normal; text-align: right; line-height: 1.25; font-size: .7rem; word-break: keep-all; }
+}

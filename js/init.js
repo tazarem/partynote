@@ -117,10 +117,12 @@ class PartyNoteInit {
                     case 'book-rename': return party_note.renameBook()
                     case 'book-delete': return party_note.deleteBook()
                     case 'page-new': return party_note.editMemo(null, party_note.open_book_id)
+                    case 'page-sort': return party_note.togglePageSort()
                     case 'page-pick': return party_note.pickLooseMemo()
                     case 'back-to-book': return party_note.openBook(party_note.open_book_id)
                     case 'memo-edit': return party_note.editMemo(party_note.open_memo_id)
                     case 'memo-more': return party_note.openMemoMenu()
+                    case 'draft-load': return party_note.loadDraft()
                     case 'memo-cancel': return party_note.cancelMemoEdit()
                 }
             }
@@ -145,6 +147,11 @@ class PartyNoteInit {
         popup.addEventListener('input', (e) => {
             if (e.target.matches('.memo-content-input')) autoGrow(e.target)
         })
+        // 임시 저장은 쓰는 동안 8초에 한 번(note.js). 앱이 닫히거나 뒤로 숨겨질 때는 기다리지 않고 바로 저장
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') party_note.writeDraft()
+        })
+        window.addEventListener('pagehide', () => party_note.writeDraft())
         // 화면 폭이 바뀌면(가로 회전 등) 줄바꿈이 달라지니 다시 맞춤
         window.addEventListener('resize', () => $$('.popup-content .memo-content-input').forEach(autoGrow))
 

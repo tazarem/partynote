@@ -26,10 +26,14 @@ const ICONS = {
 // 예전 파티노트(v0.83까지)가 쓰던 저장소 이름
 const LEGACY_DATABASE = 'Partynote'
 
+// 임시 저장: 쓰고 있는 글 하나만, 가장 최근 것으로 덮어씁니다. (저장을 잊거나 앱이 닫혔을 때 되살리는 용도)
+const DRAFT_KEY = 'ptnt_draft'
+const DRAFT_INTERVAL = 8000 // 쓰는 동안 8초에 한 번 임시 저장
+
 // 기기에 남기는 화면 설정 (테마, 마지막으로 보던 탭)
 const note_config = (() => {
     const KEY = 'ptnt_config'
-    const defaults = { app_theme: 'partynote', tab: 'all' }
+    const defaults = { app_theme: 'partynote', tab: 'all', page_sort: 'asc' } // page_sort: 책 안의 쪽을 보여 주는 순서 (모든 책 공통)
     let data = { ...defaults }
     try { data = { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch (e) { }
     return {
@@ -48,6 +52,13 @@ function newUid() {
 // 기기 현지 날짜 YYYYMMDD
 function dateStamp(d = new Date()) {
     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
+}
+
+// 임시 저장 시각: '2026.10.13 오후 2:02'
+function draftTimeLabel(time) {
+    const d = new Date(time)
+    const h = d.getHours()
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 function dateTimeLabel(time) {
@@ -131,6 +142,8 @@ class PartyNote {
     open_book_id = null // 지금 팝업에 열려 있는 책 (책 속의 메모를 읽는 중에도 유지)
     memo_base = null    // 메모 편집을 시작할 때의 값 (바뀌었는지 비교용)
     edit_book_id = 0    // 새 메모를 저장할 때 넣을 책 (0 = 낱장)
+    draft_mine = false  // 지금 편집 화면이 임시 저장의 주인인지 (다른 글의 임시 저장을 실수로 지우지 않기 위함)
+    draft_kept = null   // 이 화면이 덮어쓰기 직전에 임시 저장소에 있던 글 (편집 화면을 떠나기 전까지는 불러올 수 있게 잠깐 들고 있음)
 
     async init() {
         this.applyTheme(note_config.get('app_theme'))
@@ -438,6 +451,10 @@ class PartyNote {
         const loose = this.memos.some(m => !m.book_id)
         const status = statusOf(b)
         el.dataset.status = status
+        // 보여 주는 순서만 뒤집음 (쪽 번호와 앞·뒤쪽으로 넘겨 읽는 순서는 그대로). 모든 책에 같은 설정
+        const desc = note_config.get('page_sort') === 'desc'
+        const shown = pages.map((p, i) => [p, i])
+        if (desc) shown.reverse()
         el.innerHTML = `
             ${status !== 'active' ? `
                 <div class="status-banner">
@@ -453,12 +470,16 @@ class PartyNote {
             </div>
             <div class="book-btns">
                 <button type="button" class="btn primary" data-action="page-new"><i class="fas fa-plus"></i> 새 쪽 쓰기</button>
-                ${loose ? `<button type="button" class="btn ghost" data-action="page-pick"><i class="${ICONS.memo}"></i> 낱장 메모 넣기</button>` : ''}
+                ${loose ? `<button type="button" class="btn ghost" data-action="page-pick"><i class="${ICONS.memo}"></i> 낱장 넣기</button>` : ''}
                 ${mark >= 0 ? `<button type="button" class="btn ghost" data-page-open="${pages[mark].id}"><i class="fas fa-bookmark"></i> 이어 읽기 (${mark + 1}쪽)</button>` : ''}
+                ${pages.length > 1 ? `
+                    <button type="button" class="text-btn page-sort" data-action="page-sort" aria-label="쪽 정렬 바꾸기">
+                        <i class="fas ${desc ? 'fa-sort-numeric-down-alt' : 'fa-sort-numeric-down'}"></i> ${desc ? '내림차순' : '오름차순'}
+                    </button>` : ''}
             </div>
             ${pages.length ? `
                 <ol class="page-list">
-                    ${pages.map((p, i) => `
+                    ${shown.map(([p, i]) => `
                         <li class="page ${p.id === b.bookmark_id ? 'marked' : ''}">
                             <button type="button" class="page-item" data-page-open="${p.id}">
                                 <span class="page-no">${i + 1}</span>
@@ -579,6 +600,12 @@ class PartyNote {
         const name = b.title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').trim().slice(0, 60) || 'book'
         downloadText(`${name}.partynote.json`, JSON.stringify(payload, null, 2), 'application/json')
         ui.toast(`'${b.title}' ${pages.length}쪽을 내보냈어요`)
+    }
+
+    // 쪽 목록을 오름차순 ↔ 내림차순으로. 한 번 바꾸면 다른 책에도 똑같이 적용됩니다.
+    togglePageSort() {
+        note_config.set('page_sort', note_config.get('page_sort') === 'desc' ? 'asc' : 'desc')
+        this.renderBook()
     }
 
     async renameBook() {
@@ -822,11 +849,18 @@ class PartyNote {
         this.edit_book_id = m ? m.book_id : book_id
         const b = this.edit_book_id ? this.book(this.edit_book_id) : null
         this.memo_base = { title: m?.title || '', content: m?.content || '' }
+        this.draft_mine = false
+        this.draft_kept = null
         ui.openPopup({
             title: m ? '메모 고치기' : b ? '새 쪽 쓰기' : '메모 쓰기',
+            // 임시 저장 상태: 글이 길어져도 늘 보이도록 위쪽 고정 줄에 둠
+            actions: `<span class="draft-status" aria-live="polite"></span>`,
             content: `
                 <form class="memo-editor" novalidate>
-                    ${b ? `<div class="editor-book"><i class="${ICONS.book}"></i> ${esc(b.title)}</div>` : ''}
+                    <div class="editor-top">
+                        ${b ? `<div class="editor-book"><i class="${ICONS.book}"></i> ${esc(b.title)}</div>` : ''}
+                        <span class="draft-load-zone"></span>
+                    </div>
                     <input type="text" class="memo-title-input" placeholder="제목" maxlength="100" autocomplete="off" value="${esc(this.memo_base.title)}">
                     <textarea class="memo-content-input" rows="10" placeholder="짧은 이야기를 적어 보세요">${esc(this.memo_base.content)}</textarea>
                     <div class="editor-btns">
@@ -835,10 +869,99 @@ class PartyNote {
                     </div>
                 </form>`,
             // 쓰던 내용이 있으면 닫기 전에 묻습니다.
-            before_close: async () => !this.memoChanged() || ui.confirm('쓰던 내용을 버릴까요?', { ok: '버리기', cancel: '계속 쓰기', danger: true }),
+            before_close: () => this.confirmDiscard(),
         })
         autoGrow($('.memo-content-input'))
         $(m ? '.memo-content-input' : '.memo-title-input').focus()
+        this.renderDraftLink()
+        // 쓰는 동안 8초에 한 번 임시 저장 (편집 화면을 떠나면 writeDraft가 알아서 멈춤)
+        clearInterval(this.draft_timer)
+        this.draft_timer = setInterval(() => this.writeDraft(), DRAFT_INTERVAL)
+    }
+
+    // 편집 화면을 떠나도 되는지: 바뀐 게 없으면 바로, 있으면 물어봄. 버리기로 하면 임시 저장도 지움.
+    async confirmDiscard() {
+        const changed = this.memoChanged()
+        if (changed && !(await ui.confirm('쓰던 내용을 버릴까요?', { ok: '버리기', cancel: '계속 쓰기', danger: true }))) return false
+        if (changed || this.draft_mine) this.clearDraft()
+        return true
+    }
+
+    /* ---------- 임시 저장 ---------- */
+    // 기기의 localStorage에 한 건만 둡니다. (앱이 갑자기 닫힐 때도 바로 써지도록 IndexedDB 대신 이쪽)
+    readDraft() {
+        try {
+            const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null')
+            return d && typeof d.title === 'string' && typeof d.content === 'string' ? d : null
+        } catch (e) {
+            return null
+        }
+    }
+
+    clearDraft() {
+        this.draft_kept = null
+        try { localStorage.removeItem(DRAFT_KEY) } catch (e) { }
+        this.renderDraftLink()
+    }
+
+    // 편집 화면 오른쪽 위의 '임시 저장한 글 불러오기' 링크.
+    // 지금 화면이 만든 임시 저장이 아닐 때만(= 예전에 쓰다 만 글이 남아 있을 때만) 보입니다.
+    renderDraftLink() {
+        const zone = $('.draft-load-zone')
+        if (!zone) return
+        const d = this.draft_kept || (this.draft_mine ? null : this.readDraft())
+        zone.innerHTML = d
+            ? `<button type="button" class="text-btn draft-load" data-action="draft-load"><i class="fas fa-history"></i> 임시 저장한 글 불러오기 (${esc(dateTimeLabel(d.saved_at))})</button>`
+            : ''
+    }
+
+    // 임시 저장소의 글을 지금 편집 화면에 불러오기
+    async loadDraft() {
+        const d = this.draft_kept || this.readDraft()
+        const title = $('.memo-title-input'), content = $('.memo-content-input')
+        if (!d || !title || !content) return this.renderDraftLink()
+        if (this.memoChanged() && !(await ui.confirm('지금 쓰고 있는 내용이 임시 저장한 글로 바뀌어요.\n불러올까요?', { ok: '불러오기' }))) return
+        this.fillFromDraft(d)
+    }
+
+    fillFromDraft(d) {
+        const content = $('.memo-content-input')
+        $('.memo-title-input').value = d.title
+        content.value = d.content
+        autoGrow(content)
+        content.focus()
+        this.draft_mine = true // 이제 이 화면이 임시 저장의 주인 (이어서 8초마다 덮어씀)
+        this.draft_kept = null
+        this.renderDraftLink()
+        $('.draft-status').textContent = '임시 저장한 글을 불러왔어요'
+    }
+
+    // 지금 편집 화면의 내용을 임시 저장. 편집 중이 아니면 아무것도 안 함.
+    writeDraft() {
+        const title = $('.memo-title-input'), content = $('.memo-content-input')
+        if (!this.memo_base || !title || !content) return clearInterval(this.draft_timer) // 편집 화면이 아님: 타이머 정지
+        if (!this.memoChanged()) {
+            if (this.draft_mine) this.clearDraft() // 원래대로 되돌렸으면 남길 것이 없음
+            return
+        }
+        const m = this.open_memo_id ? this.memo(this.open_memo_id) : null
+        const status = $('.draft-status')
+        // 임시 저장소는 하나뿐이라 예전에 쓰다 만 글은 여기서 덮어써짐. 이 화면에 있는 동안은 불러올 수 있게 들고 있음
+        if (!this.draft_mine && !this.draft_kept) this.draft_kept = this.readDraft()
+        try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({
+                memo_uid: m ? m.uid : '',               // 고치던 메모 ('' = 새 글)
+                book_uid: this.book(this.edit_book_id)?.uid || '', // 새 쪽을 쓰던 책
+                title: title.value,
+                content: content.value,
+                saved_at: Date.now(),
+            }))
+            this.draft_mine = true
+            this.renderDraftLink()
+            if (status) status.textContent = `${draftTimeLabel(Date.now())} 임시 저장됨`
+        } catch (e) {
+            if (status) status.textContent = '임시 저장을 못 했어요'
+        }
     }
 
     memoChanged() {
@@ -866,6 +989,7 @@ class PartyNote {
         }
         const book = m.book_id ? this.book(m.book_id) : null
         if (book) await this.saveBookRecord(book) // 책도 방금 고친 것으로
+        this.clearDraft()
         this.render()
         ui.toast('저장했어요')
         this.openMemo(m.id)
@@ -877,7 +1001,7 @@ class PartyNote {
             : this.edit_book_id && this.book(this.edit_book_id) ? () => this.openBook(this.edit_book_id)
                 : null
         if (!back) return ui.closePopup() // 닫기 전에 before_close가 물어봄
-        if (this.memoChanged() && !(await ui.confirm('쓰던 내용을 버릴까요?', { ok: '버리기', cancel: '계속 쓰기', danger: true }))) return
+        if (!(await this.confirmDiscard())) return
         back()
     }
 
