@@ -814,17 +814,19 @@ class PartyNote {
         }
     }
 
-    // 읽기 화면: 아래로 내리면 위쪽 줄과 쪽 넘기기 줄을 숨기고, 위로 올리면 다시 보여 줌.
-    // 맨 위와 맨 아래에서는 항상 보임 (다 읽은 뒤 바로 다음 쪽으로 넘어갈 수 있게)
+    // 읽기·편집 화면: 아래로 내리면 위쪽 줄(편집 화면은 제목 칸도)을 숨기고, 위로 올리면 다시 보여 줌.
+    // 맨 위에서는 항상 보임. 읽기 화면은 맨 아래에서도 보임 (다 읽은 뒤 바로 다음 쪽으로 넘어갈 수 있게)
     onReaderScroll() {
         const popup = $('.popup'), el = $('.popup-content')
-        if (popup.dataset.variant !== 'reader') return
+        const mode = popup.dataset.variant
+        if (mode !== 'reader' && mode !== 'editor') return
         const y = el.scrollTop
         const delta = y - (this.reader_y ?? 0)
         this.reader_y = y
         const near_top = y < 24
-        const near_bottom = el.scrollHeight - el.clientHeight - y < 24
-        if (near_top || near_bottom || delta < -6) popup.classList.remove('immersive')
+        const near_bottom = mode === 'reader' && el.scrollHeight - el.clientHeight - y < 24
+        const on_title = mode === 'editor' && document.activeElement?.matches('.memo-title-input') // 제목을 고치는 중에는 숨기지 않음
+        if (near_top || near_bottom || on_title || delta < -6) popup.classList.remove('immersive')
         else if (delta > 6) popup.classList.add('immersive')
     }
 
@@ -928,26 +930,27 @@ class PartyNote {
         ui.openPopup({
             title: m ? '메모 고치기' : b ? '새 쪽 쓰기' : '메모 쓰기',
             // 임시 저장 상태: 글이 길어져도 늘 보이도록 위쪽 고정 줄에 둠
-            // 글이 길어도 바로 누를 수 있게 위쪽 고정 줄에도 저장 버튼 (아래 버튼과 같은 동작)
+            // 취소·저장은 위쪽 고정 줄에 (글이 길어도 스크롤 없이 바로 누를 수 있게). 이 화면에서는 ✕ 대신 취소
             actions: `<span class="draft-status" aria-live="polite"></span>
+                <button type="button" class="btn ghost header-cancel" data-action="memo-cancel">취소</button>
                 <button type="button" class="btn primary header-save" data-action="memo-save"><i class="fas fa-check"></i> 저장</button>`,
+            variant: 'editor', // 아래로 써 내려가면 위쪽 줄과 제목 칸을 숨김 (onReaderScroll)
             content: `
                 <form class="memo-editor" novalidate>
-                    <div class="editor-top">
-                        ${b ? `<div class="editor-book"><i class="${ICONS.book}"></i> ${esc(b.title)}</div>` : ''}
-                        <span class="draft-load-zone"></span>
+                    <div class="editor-head">
+                        <div class="editor-top">
+                            ${b ? `<div class="editor-book"><i class="${ICONS.book}"></i> ${esc(b.title)}</div>` : ''}
+                            <div class="memo-count" aria-live="off"></div>
+                            <span class="draft-load-zone"></span>
+                        </div>
+                        <input type="text" class="memo-title-input" placeholder="제목 (비워 두면 '${esc(this.defaultTitle(m, this.edit_book_id))}')" maxlength="100" autocomplete="off" value="${esc(this.memo_base.title)}">
                     </div>
-                    <input type="text" class="memo-title-input" placeholder="제목 (비워 두면 '${esc(this.defaultTitle(m, this.edit_book_id))}')" maxlength="100" autocomplete="off" value="${esc(this.memo_base.title)}">
                     <textarea class="memo-content-input" rows="10" placeholder="짧은 이야기를 적어 보세요">${esc(this.memo_base.content)}</textarea>
-                    <div class="memo-count" aria-live="off"></div>
-                    <div class="editor-btns">
-                        <button type="button" class="btn ghost" data-action="memo-cancel">취소</button>
-                        <button type="submit" class="btn primary"><i class="fas fa-check"></i> 저장</button>
-                    </div>
                 </form>`,
             // 쓰던 내용이 있으면 닫기 전에 묻습니다.
             before_close: () => this.confirmDiscard(),
         })
+        this.reader_y = 0
         autoGrow($('.memo-content-input'))
         $(m ? '.memo-content-input' : '.memo-title-input').focus()
         this.renderDraftLink()

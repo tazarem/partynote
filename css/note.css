@@ -803,7 +803,6 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
    아이폰에서만 입력칸 글자를 16px로 맞춰 확대를 막습니다. (다른 기기는 그대로) */
 @supports (-webkit-touch-callout: none) {
     input:not([type="radio"]):not([type="checkbox"]):not([type="file"]), textarea, select { font-size: 16px !important; }
-    .memo-title-input { font-size: 1.1rem !important; }
 }
 
 /* 쪽 정렬 (책 상세의 버튼 줄 오른쪽 끝) */
@@ -857,8 +856,8 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 
 /* ---------- 읽기 화면: 읽는 동안 위·아래 줄 숨기기 ---------- */
 /* 위쪽 줄을 글 위에 겹쳐 띄워서, 숨기고 보일 때 글이 들썩이지 않게 함 */
-.popup[data-variant="reader"] { position: relative; }
-.popup[data-variant="reader"] .popup-header {
+.popup[data-variant="reader"], .popup[data-variant="editor"] { position: relative; }
+.popup[data-variant="reader"] .popup-header, .popup[data-variant="editor"] .popup-header {
     position: absolute;
     top: env(safe-area-inset-top);
     left: 0;
@@ -868,11 +867,43 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
     transition: transform .25s ease;
 }
 .popup[data-variant="reader"] .popup-content { padding-top: calc(3.35rem + 1rem); }
-.popup[data-variant="reader"].immersive .popup-header { transform: translateY(calc(-100% - env(safe-area-inset-top))); }
+.popup[data-variant="reader"].immersive .popup-header, .popup[data-variant="editor"].immersive .popup-header { transform: translateY(calc(-100% - env(safe-area-inset-top))); }
 .popup[data-variant="reader"] .page-nav { transition: transform .25s ease; }
 .popup[data-variant="reader"].immersive .page-nav { transform: translateY(100%); }
 
 /* ---------- 편집 화면: 위쪽 줄의 저장 버튼 ---------- */
-.header-save { padding: .35rem .75rem; font-size: .85rem; flex-shrink: 0; }
+.header-save, .header-cancel { padding: .35rem .75rem; font-size: .85rem; flex-shrink: 0; }
+/* 편집 화면은 취소 버튼이 있으니 ✕는 숨김 (뒤로가기는 그대로 동작) */
+.popup-header:has(.header-save) .close { display: none; }
+.popup-header:has(.header-save) { padding-right: .75rem; }
 .popup-header:has(.header-save) .actions { align-items: center; gap: .4rem; overflow: visible; }
 .popup-header:has(.header-save) .draft-status { white-space: normal; word-break: keep-all; text-align: right; line-height: 1.25; max-width: 9.5rem; overflow: hidden; }
+
+/* ---------- 편집 화면: 상자 없이 글 위에 바로 쓰는 모양 ---------- */
+.popup[data-variant="editor"] .popup-content { padding-top: 3.35rem; }
+.popup[data-variant="editor"] .memo-editor { gap: .35rem; }
+/* 책 이름·불러오기 링크·제목: 위쪽 줄 바로 아래에 붙어 있다가, 아래로 써 내려가면 위쪽 줄과 함께 숨음 */
+.popup[data-variant="editor"] .editor-head {
+    position: sticky;
+    top: 0; /* 팝업 안쪽 여백(=위쪽 줄 높이) 바로 아래에 붙음 */
+    z-index: 2;
+    margin: 0 -1rem;
+    padding: .6rem 1rem .3rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+    transition: transform .25s ease;
+}
+.popup[data-variant="editor"].immersive .editor-head { transform: translateY(calc(-100% - 3.35rem - env(safe-area-inset-top))); }
+.popup[data-variant="editor"] .memo-title-input,
+.popup[data-variant="editor"] .memo-content-input { border: 0; border-radius: 0; background: transparent; }
+.popup[data-variant="editor"] .memo-title-input { padding: .3rem 0; font-size: 1rem; font-weight: 600; }
+.popup[data-variant="editor"] .memo-content-input { padding: .5rem 0 0; }
+
+/* 편집 화면: 본문 칸이 화면 아래 끝까지 (글이 짧아도 빈 곳을 누르면 바로 이어 쓰기) */
+.popup[data-variant="editor"] .memo-editor { min-height: 100%; }
+.popup[data-variant="editor"] .memo-content-input { flex: 1 0 auto; }
+/* 글자 수·크기는 제목 위 줄 오른쪽에 (책 이름 왼쪽, 불러오기 링크는 그 아래 줄) */
+.popup[data-variant="editor"] .editor-top { flex-wrap: wrap; min-height: 1.3rem; }
+.popup[data-variant="editor"] .memo-count { margin: 0 0 0 auto; text-align: right; white-space: nowrap; }
+.popup[data-variant="editor"] .draft-load-zone { flex-basis: 100%; text-align: right; }
+.popup[data-variant="editor"] .draft-load-zone:empty { display: none; }
