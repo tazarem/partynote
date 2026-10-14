@@ -33,7 +33,7 @@ const DRAFT_INTERVAL = 8000 // 쓰는 동안 8초에 한 번 임시 저장
 // 기기에 남기는 화면 설정 (테마, 마지막으로 보던 탭)
 const note_config = (() => {
     const KEY = 'ptnt_config'
-    const defaults = { app_theme: 'partynote', tab: 'all', page_sort: 'asc' } // page_sort: 책 안의 쪽을 보여 주는 순서 (모든 책 공통)
+    const defaults = { app_theme: 'partynote', tab: 'all', page_sort: 'asc', empty_title: 'number' } // page_sort: 책 안의 쪽을 보여 주는 순서 (모든 책 공통)
     let data = { ...defaults }
     try { data = { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch (e) { }
     return {
@@ -171,6 +171,7 @@ class PartyNote {
         $('meta[name="theme-color"]').setAttribute('content', theme.meta_color)
         document.documentElement.dataset.theme = name
         $$('input[name="app_theme"]').forEach(el => el.checked = el.value === name)
+        $$('input[name="empty_title"]').forEach(el => el.checked = el.value === (note_config.get('empty_title') === 'date' ? 'date' : 'number'))
         this.theme = theme
     }
 
@@ -1144,7 +1145,12 @@ class PartyNote {
     // 제목을 비웠을 때 붙일 이름.
     // - 책의 쪽: 그 쪽의 번호로 '3편' (새 쪽이면 맨 뒤 번호)
     // - 낱장 메모: '무제1', '무제2' … (지금 있는 낱장의 무제 번호 중 가장 큰 것 다음)
+    // (메뉴의 '빈 제목 기본값'이 날짜면 책·낱장 모두 그 글을 처음 쓴 날짜: '2026.10.14 (화)')
     defaultTitle(memo, book_id) {
+        if (note_config.get('empty_title') === 'date') {
+            const d = new Date(memo ? memo.created_at : Date.now())
+            return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${'일월화수목금토'[d.getDay()]})`
+        }
         const b = book_id ? this.book(book_id) : null
         if (b) {
             const pages = this.pages(b.id)

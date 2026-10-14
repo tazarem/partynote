@@ -170,6 +170,10 @@ class PartyNoteInit {
 
     bindMenu() {
         $('.menu-screen').addEventListener('change', (e) => {
+            if (e.target.name === 'empty_title') {
+                note_config.set('empty_title', e.target.value)
+                ui.toast(e.target.value === 'date' ? '제목을 비우면 날짜가 붙어요' : '제목을 비우면 1편, 무제1처럼 붙어요')
+            }
             if (e.target.name === 'app_theme') {
                 note_config.set('app_theme', e.target.value)
                 party_note.applyTheme(e.target.value)
