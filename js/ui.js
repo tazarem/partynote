@@ -54,6 +54,11 @@ class UIHandler {
     drawer_entry = false // 지금 열린 메뉴의 뒤로가기 기록이 실제로 쌓여 있는지
     popup_entry = false  // 지금 열린 팝업의 뒤로가기 기록이 실제로 쌓여 있는지
     sheet = null         // 아래에서 올라오는 선택창: { el, resolve, result, entry }
+    // 팝업 안의 화면 이동(책 → 쪽 → 편집)마다 쌓는 뒤로가기 기록. 뒤로가기를 누르면 팝업을 닫지 않고 한 화면 앞으로
+    popup_steps = 0      // 실제로 쌓인 기록 수
+    pending_steps = 0    // 우리가 보낸 뒤로가기가 도착한 뒤에 쌓을 기록 수
+    on_popup_step_back = null // 한 화면 앞으로 돌아갈 때 부를 함수 (앱이 정함)
+    closing_all = false  // ✕로 여러 화면을 한꺼번에 닫는 중
 
     constructor() {
         // 안드로이드 뒤로가기 / 브라우저 뒤로가기로 팝업, 메뉴를 닫습니다.
@@ -69,6 +74,23 @@ class UIHandler {
             if (this.sheet) {
                 this.sheet.entry = false
                 this.hideSheet(null)
+                return
+            }
+            // ✕로 쌓인 화면을 한꺼번에 닫는 중
+            if (this.closing_all) {
+                this.closing_all = false
+                this.hidePopup()
+                return
+            }
+            // 팝업 안에서 한 화면 앞으로 (편집 → 쪽 → 책)
+            if (this.popup_open && this.popup_steps > 0) {
+                this.popup_steps--
+                if (this.before_close && !(await this.before_close())) {
+                    history.pushState({ layer: 'popup-step' }, '')
+                    this.popup_steps++
+                    return
+                }
+                this.on_popup_step_back?.()
                 return
             }
             if (this.popup_open) {
@@ -109,6 +131,12 @@ class UIHandler {
     // 닫기 버튼 → history.back() → popstate에서 실제로 닫힘
     async closePopup() {
         if (!this.popup_open) return
+        this.pending_steps = 0
+        if (this.popup_entry && this.popup_steps > 0) {
+            // 팝업 안에서 쌓인 화면 기록까지 한 번에 되돌림 (popstate는 한 번만 옴)
+            this.closing_all = true
+            return history.go(-(this.popup_steps + 1))
+        }
         if (this.popup_entry) return history.back()
         // 기록이 아직 안 쌓인 드문 경우(직전 뒤로가기가 도착하기 전): 바로 닫음
         if (this.before_close && !(await this.before_close())) return
@@ -128,9 +156,29 @@ class UIHandler {
             history.pushState({ layer: 'popup' }, '')
             this.popup_entry = true
         }
+        while (this.popup_open && this.popup_entry && this.pending_steps > 0) {
+            history.pushState({ layer: 'popup-step' }, '')
+            this.pending_steps--
+            this.popup_steps++
+        }
         if (this.sheet && !this.sheet.entry) {
             history.pushState({ layer: 'sheet' }, '')
             this.sheet.entry = true
+        }
+    }
+
+    // 팝업 안에서 다음 화면으로 갈 때: 뒤로가기 기록 한 칸 (바로 쌓을 수 없으면 미뤄 둠)
+    pushPopupStep() {
+        this.pending_steps++
+        this.pushDeferredEntries()
+    }
+
+    // 화면은 앱이 이미 바꿨고, 기록만 한 칸 되돌릴 때 (예: 저장한 뒤 편집 화면 기록을 지움)
+    silentPopupStepBack() {
+        if (this.pending_steps > 0) return this.pending_steps--
+        if (this.popup_steps > 0) {
+            this.popup_steps--
+            this.silentBack()
         }
     }
 
@@ -176,6 +224,9 @@ class UIHandler {
     }
 
     hidePopup() {
+        this.popup_steps = 0
+        this.pending_steps = 0
+        this.closing_all = false
         this.popup_open = false
         this.before_close = null
         this.popup_entry = false

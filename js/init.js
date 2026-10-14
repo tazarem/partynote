@@ -116,11 +116,11 @@ class PartyNoteInit {
                     case 'book-info': return party_note.openBookInfo()
                     case 'book-rename': return party_note.renameBook()
                     case 'book-delete': return party_note.deleteBook()
-                    case 'page-new': return party_note.editMemo(null, party_note.open_book_id)
+                    case 'page-new': return party_note.nav('editMemo', [null, party_note.open_book_id])
                     case 'page-sort': return party_note.togglePageSort()
                     case 'page-pick': return party_note.pickLooseMemo()
-                    case 'back-to-book': return party_note.openBook(party_note.open_book_id)
-                    case 'memo-edit': return party_note.editMemo(party_note.open_memo_id)
+                    case 'back-to-book': return party_note.backTo('openBook', party_note.open_book_id)
+                    case 'memo-edit': return party_note.nav('editMemo', [party_note.open_memo_id])
                     case 'memo-copy': return party_note.copyMemoContent()
                     case 'memo-more': return party_note.openMemoMenu()
                     case 'draft-load': return party_note.loadDraft()
@@ -131,7 +131,8 @@ class PartyNoteInit {
 
             // 책의 쪽
             const page = e.target.closest('[data-page-open]')
-            if (page) return party_note.openMemo(Number(page.dataset.pageOpen))
+            // 책에서 쪽을 열면 한 화면 들어가고, 읽던 쪽에서 앞쪽/뒤쪽은 옆으로 이동
+            if (page) return party_note.nav('openMemo', [Number(page.dataset.pageOpen)], party_note.screen?.kind === 'openMemo' ? 'replace' : 'push')
             const more = e.target.closest('[data-page-more]')
             if (more) return party_note.openPageMenu(Number(more.dataset.pageMore))
         })
@@ -194,6 +195,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     init_svc.bindPopup()
     init_svc.bindMenu()
     install_guide.init()
+    ui.on_popup_step_back = () => party_note.navBack()
     try {
         await party_note.init()
     } catch (e) {

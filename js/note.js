@@ -140,6 +140,8 @@ function downloadText(filename, text, type) {
 
 class PartyNote {
     memos = []          // 저장된 메모 전부 (낱장 + 책 속의 쪽)
+    screen = null       // 팝업에 지금 보이는 화면 { kind, args }
+    screen_stack = []   // 뒤로가기로 돌아갈 화면들
     books = []
     tab = 'all'         // all | memo | book | favorite
     q = ''              // 검색어
@@ -428,9 +430,38 @@ class PartyNote {
         return book
     }
 
+    /* ---------- 팝업 안의 화면 이동 ---------- */
+    // 책 → 쪽 읽기 → 편집처럼 들어갈 때는 'push'(안드로이드 뒤로가기로 한 화면씩 돌아옴),
+    // 앞쪽/뒤쪽처럼 옆으로 갈 때는 'replace'. 팝업이 닫혀 있으면 새로 시작.
+    nav(kind, args, mode = 'push') {
+        if (!ui.popup_open) this.screen_stack = []
+        else if (mode === 'push' && this.screen) {
+            this.screen_stack.push(this.screen)
+            ui.pushPopupStep()
+        }
+        return this[kind](...args)
+    }
+
+    // 뒤로가기(popstate)로 한 화면 앞으로
+    navBack() {
+        const prev = this.screen_stack.pop()
+        if (prev) this[prev.kind](...prev.args)
+    }
+
+    // 앱 안의 버튼으로 돌아갈 때: 바로 앞 화면이 그 화면이면 기록도 한 칸 되돌리고, 아니면 그 자리에서 바꿈
+    backTo(kind, id) {
+        const top = this.screen_stack[this.screen_stack.length - 1]
+        if (top && top.kind === kind && top.args[0] === id) {
+            this.screen_stack.pop()
+            ui.silentPopupStepBack()
+        }
+        return this[kind](id)
+    }
+
     openBook(id) {
         const b = this.book(id)
         if (!b) return
+        this.screen = { kind: 'openBook', args: [id] }
         this.open_book_id = id
         this.open_memo_id = null
         this.memo_base = null
@@ -772,6 +803,7 @@ class PartyNote {
     async openMemo(id) {
         const m = this.memo(id)
         if (!m) return
+        this.screen = { kind: 'openMemo', args: [id] }
         this.open_memo_id = id
         this.memo_base = null
         const b = m.book_id ? this.book(m.book_id) : null
@@ -866,7 +898,7 @@ class PartyNote {
                     <button type="button" class="sheet-option danger" data-sheet-value="delete"><i class="far fa-trash-alt"></i> 삭제</button>
                 </div>`,
         })
-        if (choice === 'edit') return this.editMemo(m.id)
+        if (choice === 'edit') return this.nav('editMemo', [m.id])
         if (choice === 'move') return this.moveMemoToBook(m)
         if (choice === 'out') {
             await this.takeOutOfBook(m)
@@ -882,7 +914,7 @@ class PartyNote {
             this.render()
             ui.toast('메모를 삭제했어요')
             // 책 속의 쪽이었으면 책으로, 낱장이었으면 닫기
-            if (book_id && this.book(book_id)) return this.openBook(book_id)
+            if (book_id && this.book(book_id)) return this.backTo('openBook', book_id)
             ui.closePopup()
         }
     }
@@ -921,6 +953,7 @@ class PartyNote {
     editMemo(id, book_id = 0) {
         const m = id ? this.memo(id) : null
         if (id && !m) return
+        this.screen = { kind: 'editMemo', args: [id, book_id] }
         this.open_memo_id = id
         this.edit_book_id = m ? m.book_id : book_id
         const b = this.edit_book_id ? this.book(this.edit_book_id) : null
@@ -1105,7 +1138,7 @@ class PartyNote {
         this.clearDraft()
         this.render()
         ui.toast('저장했어요')
-        this.openMemo(m.id)
+        this.backTo('openMemo', m.id)
     }
 
     // 제목을 비웠을 때 붙일 이름.
@@ -1124,6 +1157,7 @@ class PartyNote {
 
     // 편집 취소: 고치던 메모면 조회 화면으로, 책에 쓰던 새 쪽이면 책으로, 새 낱장이면 닫기
     async cancelMemoEdit() {
+        if (this.screen_stack.length && (ui.popup_steps > 0 || ui.pending_steps > 0)) return history.back()
         const back = this.open_memo_id ? () => this.openMemo(this.open_memo_id)
             : this.edit_book_id && this.book(this.edit_book_id) ? () => this.openBook(this.edit_book_id)
                 : null
