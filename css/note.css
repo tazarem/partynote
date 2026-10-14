@@ -854,3 +854,25 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .popup-content:has(.memo-view .page-nav) { padding-bottom: 0; }
 .memo-view .memo-date { margin-bottom: 1.25rem; }
 .page-nav-no { font-family: system-ui, sans-serif; font-size: .78rem; color: var(--sub); }
+
+/* ---------- 읽기 화면: 읽는 동안 위·아래 줄 숨기기 ---------- */
+/* 위쪽 줄을 글 위에 겹쳐 띄워서, 숨기고 보일 때 글이 들썩이지 않게 함 */
+.popup[data-variant="reader"] { position: relative; }
+.popup[data-variant="reader"] .popup-header {
+    position: absolute;
+    top: env(safe-area-inset-top);
+    left: 0;
+    right: 0;
+    z-index: 3;
+    background: var(--surface);
+    transition: transform .25s ease;
+}
+.popup[data-variant="reader"] .popup-content { padding-top: calc(3.35rem + 1rem); }
+.popup[data-variant="reader"].immersive .popup-header { transform: translateY(calc(-100% - env(safe-area-inset-top))); }
+.popup[data-variant="reader"] .page-nav { transition: transform .25s ease; }
+.popup[data-variant="reader"].immersive .page-nav { transform: translateY(100%); }
+
+/* ---------- 편집 화면: 위쪽 줄의 저장 버튼 ---------- */
+.header-save { padding: .35rem .75rem; font-size: .85rem; flex-shrink: 0; }
+.popup-header:has(.header-save) .actions { align-items: center; gap: .4rem; overflow: visible; }
+.popup-header:has(.header-save) .draft-status { white-space: normal; word-break: keep-all; text-align: right; line-height: 1.25; max-width: 9.5rem; overflow: hidden; }

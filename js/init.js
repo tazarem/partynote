@@ -124,6 +124,7 @@ class PartyNoteInit {
                     case 'memo-copy': return party_note.copyMemoContent()
                     case 'memo-more': return party_note.openMemoMenu()
                     case 'draft-load': return party_note.loadDraft()
+                    case 'memo-save': return party_note.saveMemo()
                     case 'memo-cancel': return party_note.cancelMemoEdit()
                 }
             }
@@ -156,6 +157,9 @@ class PartyNoteInit {
         window.addEventListener('pagehide', () => party_note.writeDraft())
         // 화면 폭이 바뀌면(가로 회전 등) 줄바꿈이 달라지니 다시 맞춤
         window.addEventListener('resize', () => $$('.popup-content .memo-content-input').forEach(autoGrow))
+
+        // 읽기 화면에서 스크롤 방향에 따라 위·아래 줄 숨기기
+        $('.popup-content').addEventListener('scroll', () => party_note.onReaderScroll(), { passive: true })
 
         popup.addEventListener('submit', (e) => {
             e.preventDefault()

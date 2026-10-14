@@ -784,6 +784,7 @@ class PartyNote {
                 ${this.favoriteBtnHtml(m)}
                 <button type="button" class="icon-btn" data-action="memo-edit" aria-label="메모 고치기"><i class="fas fa-pen"></i></button>
                 <button type="button" class="icon-btn" data-action="memo-more" aria-label="더 보기"><i class="fas fa-ellipsis-h"></i></button>`,
+            variant: 'reader', // 아래로 읽어 내려가면 위·아래 줄을 숨김 (onReaderScroll)
             content: `
                 <div class="memo-view">
                     ${b ? `
@@ -805,11 +806,26 @@ class PartyNote {
                         </div>` : ''}
                 </div>`,
         })
+        this.reader_y = 0
         // 책갈피: 마지막으로 읽은 쪽 (고친 시각은 건드리지 않음)
         if (b && b.bookmark_id !== m.id) {
             b.bookmark_id = m.id
             await this.saveBookRecord(b, { touch: false })
         }
+    }
+
+    // 읽기 화면: 아래로 내리면 위쪽 줄과 쪽 넘기기 줄을 숨기고, 위로 올리면 다시 보여 줌.
+    // 맨 위와 맨 아래에서는 항상 보임 (다 읽은 뒤 바로 다음 쪽으로 넘어갈 수 있게)
+    onReaderScroll() {
+        const popup = $('.popup'), el = $('.popup-content')
+        if (popup.dataset.variant !== 'reader') return
+        const y = el.scrollTop
+        const delta = y - (this.reader_y ?? 0)
+        this.reader_y = y
+        const near_top = y < 24
+        const near_bottom = el.scrollHeight - el.clientHeight - y < 24
+        if (near_top || near_bottom || delta < -6) popup.classList.remove('immersive')
+        else if (delta > 6) popup.classList.add('immersive')
     }
 
     // 메모의 내용을 클립보드로 (연재처의 글쓰기 칸에 붙여넣는 용도). 제목은 빼고 내용만, 줄바꿈 그대로.
@@ -912,7 +928,9 @@ class PartyNote {
         ui.openPopup({
             title: m ? '메모 고치기' : b ? '새 쪽 쓰기' : '메모 쓰기',
             // 임시 저장 상태: 글이 길어져도 늘 보이도록 위쪽 고정 줄에 둠
-            actions: `<span class="draft-status" aria-live="polite"></span>`,
+            // 글이 길어도 바로 누를 수 있게 위쪽 고정 줄에도 저장 버튼 (아래 버튼과 같은 동작)
+            actions: `<span class="draft-status" aria-live="polite"></span>
+                <button type="button" class="btn primary header-save" data-action="memo-save"><i class="fas fa-check"></i> 저장</button>`,
             content: `
                 <form class="memo-editor" novalidate>
                     <div class="editor-top">

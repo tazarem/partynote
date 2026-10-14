@@ -89,6 +89,7 @@ class UIHandler {
     // variant: 팝업 모양 (''=기본)
     openPopup({ title = '', actions = '', content = '', before_close = null, variant = '' }) {
         $('.popup').dataset.variant = variant
+        $('.popup').classList.remove('immersive') // 읽기 화면에서 숨겼던 위·아래 줄을 다시 보이게
         $('.popup-header .title').innerHTML = title
         $('.popup-header .actions').innerHTML = actions
         const content_el = $('.popup-content')
