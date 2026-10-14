@@ -896,7 +896,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .popup[data-variant="editor"].immersive .editor-head { transform: translateY(calc(-100% - 3.35rem - env(safe-area-inset-top))); }
 .popup[data-variant="editor"] .memo-title-input,
 .popup[data-variant="editor"] .memo-content-input { border: 0; border-radius: 0; background: transparent; }
-.popup[data-variant="editor"] .memo-title-input { padding: .3rem 0; font-size: 1rem; font-weight: 600; }
+.popup[data-variant="editor"] .memo-title-input { padding: .3rem 0; font-size: 16.5px; font-weight: 600; }
 .popup[data-variant="editor"] .memo-content-input { padding: .5rem 0 0; }
 
 /* 편집 화면: 본문 칸이 화면 아래 끝까지 (글이 짧아도 빈 곳을 누르면 바로 이어 쓰기) */
@@ -909,7 +909,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .popup[data-variant="editor"] .draft-load-zone:empty { display: none; }
 
 /* 읽기 화면의 글 제목: 크게 띄우지 않고 본문 크기로 (편집 화면의 제목과 같은 크기) */
-.memo-view .memo-title { font-size: 1rem; font-weight: 600; line-height: 1.5; }
+.memo-view .memo-title { font-size: 16.5px; font-weight: 600; line-height: 1.5; }
 .memo-view .memo-head { margin-bottom: .6rem; align-items: center; }
 .memo-view .memo-copy { margin-top: 0; }
 
