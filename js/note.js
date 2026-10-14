@@ -782,7 +782,6 @@ class PartyNote {
             title: `<i class="${ICONS.memo}"></i> ${esc(m.title)}`,
             actions: `
                 ${this.favoriteBtnHtml(m)}
-                <button type="button" class="icon-btn" data-action="memo-edit" aria-label="메모 고치기"><i class="fas fa-pen"></i></button>
                 <button type="button" class="icon-btn" data-action="memo-more" aria-label="더 보기"><i class="fas fa-ellipsis-h"></i></button>`,
             variant: 'reader', // 아래로 읽어 내려가면 위·아래 줄을 숨김 (onReaderScroll)
             content: `
@@ -853,7 +852,7 @@ class PartyNote {
         ui.toast(ok ? `본문을 복사했어요 (${chars}자)` : '복사하지 못했어요. 본문을 길게 눌러 직접 복사해 주세요')
     }
 
-    // 메모의 … 버튼: 책에 넣기(옮기기) / 책에서 빼기 / 삭제
+    // 메모의 … 버튼: 고치기 / 책에 넣기(옮기기) / 책에서 빼기 / 삭제
     async openMemoMenu() {
         const m = this.memo(this.open_memo_id)
         if (!m) return
@@ -861,11 +860,13 @@ class PartyNote {
             title: m.title,
             content: `
                 <div class="sheet-options">
+                    <button type="button" class="sheet-option" data-sheet-value="edit"><i class="fas fa-pen"></i> 고치기</button>
                     <button type="button" class="sheet-option" data-sheet-value="move"><i class="${ICONS.book}"></i> ${m.book_id ? '다른 책으로 옮기기' : '책에 넣기'}</button>
                     ${m.book_id ? `<button type="button" class="sheet-option" data-sheet-value="out"><i class="fas fa-sign-out-alt"></i> 책에서 빼기 (낱장으로)</button>` : ''}
                     <button type="button" class="sheet-option danger" data-sheet-value="delete"><i class="far fa-trash-alt"></i> 삭제</button>
                 </div>`,
         })
+        if (choice === 'edit') return this.editMemo(m.id)
         if (choice === 'move') return this.moveMemoToBook(m)
         if (choice === 'out') {
             await this.takeOutOfBook(m)

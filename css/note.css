@@ -907,3 +907,11 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .popup[data-variant="editor"] .memo-count { margin: 0 0 0 auto; text-align: right; white-space: nowrap; }
 .popup[data-variant="editor"] .draft-load-zone { flex-basis: 100%; text-align: right; }
 .popup[data-variant="editor"] .draft-load-zone:empty { display: none; }
+
+/* 읽기 화면의 글 제목: 크게 띄우지 않고 본문 크기로 (편집 화면의 제목과 같은 크기) */
+.memo-view .memo-title { font-size: 1rem; font-weight: 600; line-height: 1.5; }
+.memo-view .memo-head { margin-bottom: .6rem; align-items: center; }
+.memo-view .memo-copy { margin-top: 0; }
+
+/* 위쪽 줄의 제목(글 제목·책 제목·편집 화면 이름): 옆 아이콘 버튼과 비슷한 크기로 */
+.popup-header .title { font-size: 1rem; }
