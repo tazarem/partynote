@@ -162,7 +162,11 @@ button { cursor: pointer; }
 /* ---------- 팝업 ---------- */
 .popup-overlay {
     position: fixed;
-    inset: 0;
+    /* 키보드가 올라오면 보이는 높이만큼만 (ui.js fitToVisualViewport) */
+    top: var(--vv-top, 0);
+    left: 0;
+    right: 0;
+    height: var(--vv-h, 100%);
     z-index: 40;
     background: #00000055;
     backdrop-filter: blur(2px);
@@ -296,7 +300,11 @@ button { cursor: pointer; }
 
 .dialog-overlay {
     position: fixed;
-    inset: 0;
+    /* 입력 창(제목 고치기 등)이 키보드에 가리지 않게 보이는 높이만큼만 */
+    top: var(--vv-top, 0);
+    left: 0;
+    right: 0;
+    height: var(--vv-h, 100%);
     z-index: 70;
     background: #00000066;
     display: flex;

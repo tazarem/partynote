@@ -143,8 +143,11 @@ class PartyNoteInit {
 
         // 메모 내용 칸은 쓰는 만큼 늘어나고 지우면 줄어듭니다.
         popup.addEventListener('input', (e) => {
-            if (e.target.matches('.memo-content-input')) autoGrow(e.target)
-            if (e.target.matches('.memo-content-input')) party_note.renderMemoCount()
+            if (e.target.matches('.memo-content-input')) {
+                autoGrow(e.target)
+                requestAnimationFrame(() => keepCaretVisible(e.target))
+                party_note.renderMemoCount()
+            }
         })
         // 임시 저장은 쓰는 동안 8초에 한 번(note.js). 앱이 닫히거나 뒤로 숨겨질 때는 기다리지 않고 바로 저장
         document.addEventListener('visibilitychange', () => {
@@ -153,6 +156,20 @@ class PartyNoteInit {
         window.addEventListener('pagehide', () => party_note.writeDraft())
         // 화면 폭이 바뀌면(가로 회전 등) 줄바꿈이 달라지니 다시 맞춤
         window.addEventListener('resize', () => $$('.popup-content .memo-content-input').forEach(autoGrow))
+
+        // 키보드가 올라오고 내려갈 때: 팝업을 보이는 높이에 맞추고, 쓰던 줄이 키보드에 가리지 않게
+        const onViewport = () => {
+            fitToVisualViewport()
+            const input = $('.memo-content-input')
+            if (input && document.activeElement === input) requestAnimationFrame(() => keepCaretVisible(input))
+        }
+        window.visualViewport?.addEventListener('resize', onViewport)
+        window.visualViewport?.addEventListener('scroll', fitToVisualViewport)
+        fitToVisualViewport()
+        // 본문 칸을 누른 직후(키보드가 다 올라온 뒤)에도 한 번
+        popup.addEventListener('focusin', (e) => {
+            if (e.target.matches('.memo-content-input')) setTimeout(() => keepCaretVisible(e.target), 350)
+        })
 
         // 읽기 화면에서 스크롤 방향에 따라 위·아래 줄 숨기기
         $('.popup-content').addEventListener('scroll', () => party_note.onReaderScroll(), { passive: true })

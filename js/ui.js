@@ -46,6 +46,50 @@ function autoGrow(textarea) {
     if (scroller) scroller.scrollTop = scroll_top
 }
 
+// textarea 안의 커서가 textarea 위쪽에서 몇 px 아래에 있는지 (같은 모양의 보이지 않는 상자에 커서 앞 글자를 넣어 잼)
+function caretTop(textarea) {
+    const style = getComputedStyle(textarea)
+    const mirror = document.createElement('div')
+    for (const key of ['boxSizing', 'width', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderStyle', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'wordBreak', 'overflowWrap', 'tabSize']) mirror.style[key] = style[key]
+    mirror.style.cssText += ';position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre-wrap;height:auto'
+    mirror.textContent = textarea.value.slice(0, textarea.selectionEnd)
+    const mark = document.createElement('span')
+    mark.textContent = '\u200b'
+    mirror.appendChild(mark)
+    document.body.appendChild(mirror)
+    const top = mark.offsetTop
+    const line = mark.offsetHeight || parseFloat(style.lineHeight) || 24
+    mirror.remove()
+    return { top, line }
+}
+
+// 쓰는 줄이 화면(키보드 위)에 보이도록 팝업을 스크롤
+function keepCaretVisible(textarea) {
+    const scroller = textarea?.closest('.popup-content')
+    if (!scroller || document.activeElement !== textarea) return
+    const { top, line } = caretTop(textarea)
+    const y = textarea.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop + top
+    const room_top = 90 // 위쪽 줄·편집 머리말에 가리지 않게
+    const room_bottom = 24
+    if (y + line > scroller.scrollTop + scroller.clientHeight - room_bottom) scroller.scrollTop = y + line - scroller.clientHeight + room_bottom
+    else if (y < scroller.scrollTop + room_top) scroller.scrollTop = Math.max(0, y - room_top)
+}
+
+// 키보드가 화면을 덮지 않게: 실제로 보이는 높이(키보드를 뺀 높이)에 팝업을 맞춤.
+// 안드로이드 크롬은 viewport의 interactive-widget=resizes-content로 화면이 줄어들고, 아이폰은 여기서 맞춤
+function fitToVisualViewport() {
+    const vv = window.visualViewport
+    if (!vv) return
+    const root = document.documentElement.style
+    if (vv.scale > 1.01) { // 손가락으로 확대한 중에는 건드리지 않음
+        root.removeProperty('--vv-h')
+        root.removeProperty('--vv-top')
+        return
+    }
+    root.setProperty('--vv-h', `${vv.height}px`)
+    root.setProperty('--vv-top', `${vv.offsetTop}px`)
+}
+
 class UIHandler {
     popup_open = false
     drawer = false
