@@ -815,7 +815,10 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .item-row.book[data-status="stopped"] .has-cover { filter: grayscale(1); }
 /* 표지 사진 */
 .has-cover { background-size: cover; background-position: center; background-color: var(--line); }
-.item-icon.has-cover { width: 1.8rem; height: 2.4rem; margin: 0 .225rem; border-radius: .2rem .4rem .4rem .2rem; box-shadow: inset .2rem 0 0 #0002, 0 1px 3px #0003; }
+/* 목록: 표지 사진이 카드 왼쪽 끝에 붙어 위아래를 꽉 채움 (카드 모서리에 맞춰 잘림) */
+.item-row.cover-row { padding-top: 0; padding-bottom: 0; padding-left: 0; overflow: hidden; }
+.item-row.cover-row .item-body { padding: .85rem 0; }
+.item-icon.has-cover { align-self: stretch; width: 3.3rem; height: auto; min-height: 4.4rem; border-radius: 0; box-shadow: inset .25rem 0 0 #0002; }
 .book-spine.has-cover { padding: 0; }
 
 /* ---------- 아이폰: 입력칸을 눌러도 화면이 확대되지 않게 ---------- */
