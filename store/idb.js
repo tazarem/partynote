@@ -45,7 +45,7 @@ class IndexedDBClient {
                 status_at: 0,       // 완결·중지한 시각 (쓰는 중이면 0)
                 locked: 0,          // 잠금 0 | 1 (잠근 책은 … 메뉴의 삭제가 숨겨짐)
                 hidden: 0,          // 비공개 0 | 1
-                cover: '',          // 표지 사진 (dataURL, 300×400 JPEG). '' = 색 표지
+                cover: '',          // 표지 사진 (dataURL, 400×572 JPEG · 1:1.43, 문피아 규격). '' = 색 표지
                 deleted_at: 0,      // 휴지통으로 옮긴 시각 (0 = 휴지통 아님)
                 created_at: 0,
                 updated_at: 0,

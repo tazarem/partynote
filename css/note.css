@@ -573,7 +573,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .item-icon {
     flex-shrink: 0;
     align-self: stretch;
-    width: 3.3rem;
+    width: 3.1rem; /* 4.4rem 높이에서 1:1.43 */
     min-height: 4.4rem;
     display: inline-flex;
     align-items: center;
@@ -650,7 +650,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .book-spine {
     flex-shrink: 0;
     width: 4.2rem;
-    min-height: 5.4rem;
+    min-height: 6rem; /* 1:1.43 */
     border-radius: .25rem .6rem .6rem .25rem;
     background: var(--cover);
     box-shadow: inset .45rem 0 0 #00000022, 0 2px 6px #0003;

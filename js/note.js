@@ -128,13 +128,13 @@ function periodLabel(from, to = Date.now()) {
     return `${parts.join(' ')}째`
 }
 
-// 표지 사진: 가운데를 3:4로 잘라 300×400 JPEG로 줄임 (백업 파일에 그대로 들어감)
+// 표지 사진: 가운데를 1:1.43(조아라·문피아 표지 비율)로 잘라 400×572 JPEG로 줄임 (백업 파일에 그대로 들어감)
 function makeCoverImage(file) {
     return new Promise((res, rej) => {
         const img = new Image()
         const url = URL.createObjectURL(file)
         img.onload = () => {
-            const W = 300, H = 400
+            const W = 400, H = 572
             const scale = Math.max(W / img.width, H / img.height)
             const canvas = document.createElement('canvas')
             canvas.width = W
