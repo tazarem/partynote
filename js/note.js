@@ -33,7 +33,7 @@ const DRAFT_INTERVAL = 8000 // 쓰는 동안 8초에 한 번 임시 저장
 // 기기에 남기는 화면 설정 (테마, 마지막으로 보던 탭)
 const note_config = (() => {
     const KEY = 'ptnt_config'
-    const defaults = { app_theme: 'partynote', tab: 'all', page_sort: 'asc', empty_title: 'number', show_private: 'off' } // page_sort: 책 안의 쪽을 보여 주는 순서 (모든 책 공통)
+    const defaults = { app_theme: 'partynote', tab: 'all', page_sort: 'asc', empty_title: 'number', show_private: 'off', epub_author: '' } // page_sort: 책 안의 쪽을 보여 주는 순서 (모든 책 공통)
     let data = { ...defaults }
     try { data = { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch (e) { }
     return {
@@ -218,6 +218,7 @@ class PartyNote {
         $('meta[name="theme-color"]').setAttribute('content', theme.meta_color)
         document.documentElement.dataset.theme = name
         $$('input[name="app_theme"]').forEach(el => el.checked = el.value === name)
+        this.renderEpubAuthor()
         $$('input[name="show_private"]').forEach(el => el.checked = el.value === (this.showPrivate() ? 'on' : 'off'))
         $$('input[name="empty_title"]').forEach(el => el.checked = el.value === (note_config.get('empty_title') === 'date' ? 'date' : 'number'))
         this.theme = theme
@@ -935,9 +936,12 @@ class PartyNote {
         const kind = await ui.choose(`'${b.title}' 책을 어떤 파일로 내보낼까요?`, [
             { value: 'json', label: '선물용 파일 (.json) · 파티노트에서 가져오기' },
             { value: 'docx', label: '워드 문서 (.docx) · 워드, 구글 Docs, 한글' },
+            { value: 'epub', label: '전자책 (.epub) · Apple Books, Play 북' },
             { value: 'txt', label: '텍스트 파일 (.txt)' },
         ], { stack: true })
         if (!kind) return
+        // 전자책은 지은이가 필요: 처음 한 번만 묻고 기억함 (메뉴에서 바꿀 수 있음)
+        if (kind === 'epub' && !note_config.get('epub_author') && !(await this.editEpubAuthor())) return
         // 파일 이름에 쓸 수 없는 글자는 뺌
         const name = b.title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').trim().slice(0, 60) || 'book'
         if (kind === 'json') this.exportBookGift(b, pages, name)
@@ -960,9 +964,25 @@ class PartyNote {
         const status = statusOf(b)
         const info = [`${fullDate(b.created_at)} ~ ${status === 'active' ? '쓰는 중' : `${fullDate(b.status_at)} ${BOOK_STATUS[status].short}`}`, `${pages.length}쪽`]
         if (kind === 'docx') return downloadText(`${name}.docx`, makeBookDocx(b, info, pages))
+        if (kind === 'epub') return downloadText(`${name}.epub`, makeBookEpub(b, info, pages, note_config.get('epub_author')))
         const line = '─'.repeat(20)
         const text = [b.title, ...info, '', ...pages.flatMap(p => [line, p.title, line, '', ...p.content.split(/\r\n?|\n/), '', ''])].join('\r\n')
         downloadText(`${name}.txt`, '\ufeff' + text, 'text/plain;charset=utf-8') // 윈도 메모장에서도 한글이 안 깨지게 BOM
+    }
+
+    // 전자책 지은이 이름 (한 번 적으면 기억). 적었으면 true
+    async editEpubAuthor() {
+        const now = note_config.get('epub_author')
+        const name = await ui.prompt('전자책에 넣을 지은이 이름을 적어 주세요.\n한 번 적으면 기억해요. 메뉴에서 바꿀 수 있어요.', { value: now, placeholder: '지은이 (필명도 좋아요)', ok: '저장', maxlength: 40 })
+        if (!name) return false
+        note_config.set('epub_author', name)
+        this.renderEpubAuthor()
+        return true
+    }
+
+    renderEpubAuthor() {
+        const el = $('.epub-author-name')
+        if (el) el.textContent = note_config.get('epub_author') || '아직 없어요'
     }
 
     // 쪽 목록을 오름차순 ↔ 내림차순으로. 한 번 바꾸면 다른 책에도 똑같이 적용됩니다.

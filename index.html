@@ -22,6 +22,7 @@
     <script src="./store/idb.js"></script>
     <script src="./js/ui.js"></script>
     <script src="./js/docx.js"></script>
+    <script src="./js/epub.js"></script>
     <script src="./js/note.js"></script>
     <script src="./js/install.js"></script>
     <script src="./js/init.js"></script>
@@ -100,6 +101,12 @@
                 <button type="button" class="btn ghost export-btn"><i class="fas fa-download"></i> 내보내기</button>
                 <button type="button" class="btn ghost import-btn"><i class="fas fa-upload"></i> 가져오기</button>
                 <input type="file" id="import-file" accept="application/json,.json" hidden>
+            </div>
+
+            <h3>전자책 지은이</h3>
+            <div class="config-caption">책을 전자책(.epub)으로 내보낼 때 들어가는 이름이에요. 지금: <b class="epub-author-name"></b></div>
+            <div class="menu-btn-group">
+                <button type="button" class="btn ghost epub-author-btn"><i class="fas fa-pen"></i> 지은이 바꾸기</button>
             </div>
 
             <h3>후원하기</h3>

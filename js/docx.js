@@ -17,8 +17,8 @@ function crc32(bytes) {
     return (c ^ 0xFFFFFFFF) >>> 0
 }
 
-// files: [{ name, text }] → zip 파일 바이트 (압축하지 않고 그대로 담음)
-function makeZip(files) {
+// files: [{ name, text } 또는 { name, bytes }] → zip 파일 (압축하지 않고 그대로 담음. 전자책(epub)도 이걸로 묶음)
+function makeZip(files, type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
     const enc = new TextEncoder()
     const now = new Date()
     const dos_time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)
@@ -27,7 +27,7 @@ function makeZip(files) {
     let offset = 0
     for (const f of files) {
         const name = enc.encode(f.name)
-        const data = enc.encode(f.text)
+        const data = f.bytes || enc.encode(f.text)
         const crc = crc32(data)
         const local = new DataView(new ArrayBuffer(30))
         local.setUint32(0, 0x04034b50, true)
@@ -65,7 +65,7 @@ function makeZip(files) {
     end.setUint16(10, files.length, true)
     end.setUint32(12, central_size, true)
     end.setUint32(16, offset, true)
-    return new Blob([...chunks, ...central, new Uint8Array(end.buffer)], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    return new Blob([...chunks, ...central, new Uint8Array(end.buffer)], { type })
 }
 
 // XML에 넣을 수 없는 제어 문자는 빼고 특수 문자는 바꿈

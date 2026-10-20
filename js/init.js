@@ -190,6 +190,7 @@ class PartyNoteInit {
         })
         $('.export-btn').addEventListener('click', () => party_note.exportBackup())
         $('.import-btn').addEventListener('click', () => $('#import-file').click())
+        $('.epub-author-btn').addEventListener('click', () => party_note.editEpubAuthor())
         $('.delete-all-btn').addEventListener('click', () => party_note.deleteAll())
         $('.app-version').textContent = `v${APP_CONFIG.app_version}`
     }
