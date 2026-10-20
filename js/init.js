@@ -116,8 +116,7 @@ class PartyNoteInit {
                 switch (action.dataset.action) {
                     case 'favorite': return party_note.toggleFavorite()
                     case 'book-info': return party_note.openBookInfo()
-                    case 'book-rename': return party_note.renameBook()
-                    case 'book-delete': return party_note.deleteBook()
+                    case 'book-more': return party_note.openBookMenu()
                     case 'page-new': return party_note.nav('editMemo', [null, party_note.open_book_id])
                     case 'page-sort': return party_note.togglePageSort()
                     case 'page-pick': return party_note.pickLooseMemo()
@@ -175,6 +174,10 @@ class PartyNoteInit {
             if (e.target.name === 'empty_title') {
                 note_config.set('empty_title', e.target.value)
                 ui.toast(e.target.value === 'date' ? '제목을 비우면 날짜가 붙어요' : '제목을 비우면 1편, 무제1처럼 붙어요')
+            }
+            if (e.target.name === 'show_private') {
+                party_note.setShowPrivate(e.target.value === 'on')
+                ui.toast(e.target.value === 'on' ? '필터에 비공개 칸이 생겼어요' : '비공개 글을 숨겼어요')
             }
             if (e.target.name === 'app_theme') {
                 note_config.set('app_theme', e.target.value)

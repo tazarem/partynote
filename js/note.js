@@ -33,7 +33,7 @@ const DRAFT_INTERVAL = 8000 // 쓰는 동안 8초에 한 번 임시 저장
 // 기기에 남기는 화면 설정 (테마, 마지막으로 보던 탭)
 const note_config = (() => {
     const KEY = 'ptnt_config'
-    const defaults = { app_theme: 'partynote', tab: 'all', page_sort: 'asc', empty_title: 'number' } // page_sort: 책 안의 쪽을 보여 주는 순서 (모든 책 공통)
+    const defaults = { app_theme: 'partynote', tab: 'all', page_sort: 'asc', empty_title: 'number', show_private: 'off' } // page_sort: 책 안의 쪽을 보여 주는 순서 (모든 책 공통)
     let data = { ...defaults }
     try { data = { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch (e) { }
     return {
@@ -154,7 +154,7 @@ class PartyNote {
     books = []
     trash_memos = []    // 휴지통의 메모 (위의 memos·books에는 들어 있지 않음)
     trash_books = []
-    tab = 'all'         // all | memo | book | favorite | trash
+    tab = 'all'         // all | memo | book | favorite | private | trash
     q = ''              // 검색어
     open_memo_id = null // 지금 팝업에 열려 있는 메모
     open_book_id = null // 지금 팝업에 열려 있는 책 (책 속의 메모를 읽는 중에도 유지)
@@ -166,7 +166,7 @@ class PartyNote {
 
     async init() {
         this.applyTheme(note_config.get('app_theme'))
-        this.tab = ['all', 'memo', 'book', 'favorite', 'trash'].includes(note_config.get('tab')) ? note_config.get('tab') : 'all'
+        this.tab = ['all', 'memo', 'book', 'favorite', 'trash'].includes(note_config.get('tab')) || (note_config.get('tab') === 'private' && this.showPrivate()) ? note_config.get('tab') : 'all'
         await idb.openDatabase()
         const moved = await this.migrateLegacy()
         const memos = await idb.doSelectAll('memo')
@@ -187,6 +187,7 @@ class PartyNote {
         $('meta[name="theme-color"]').setAttribute('content', theme.meta_color)
         document.documentElement.dataset.theme = name
         $$('input[name="app_theme"]').forEach(el => el.checked = el.value === name)
+        $$('input[name="show_private"]').forEach(el => el.checked = el.value === (this.showPrivate() ? 'on' : 'off'))
         $$('input[name="empty_title"]').forEach(el => el.checked = el.value === (note_config.get('empty_title') === 'date' ? 'date' : 'number'))
         this.theme = theme
     }
@@ -272,7 +273,9 @@ class PartyNote {
 
     async insertMemo(values) {
         const now = Date.now()
-        const memo = { ...idb.newRecord('memo'), uid: newUid(), created_at: now, updated_at: now, ...values }
+        // 책의 쪽은 책을 따라가고, 낱장은 비공개 칸에서 만들면 비공개로
+        const hidden = values.book_id ? (this.book(values.book_id)?.hidden ? 1 : 0) : this.tab === 'private' ? 1 : 0
+        const memo = { ...idb.newRecord('memo'), uid: newUid(), created_at: now, updated_at: now, hidden, ...values }
         memo.id = await idb.doInsert('memo', memo)
         this.memos.push(memo)
         return memo
@@ -280,7 +283,7 @@ class PartyNote {
 
     async insertBook(title) {
         const now = Date.now()
-        const book = { ...idb.newRecord('book'), uid: newUid(), title, created_at: now, updated_at: now }
+        const book = { ...idb.newRecord('book'), uid: newUid(), title, created_at: now, updated_at: now, hidden: this.tab === 'private' ? 1 : 0 }
         book.id = await idb.doInsert('book', book)
         this.books.push(book)
         return book
@@ -292,6 +295,18 @@ class PartyNote {
     }
 
     /* ---------- 목록 ---------- */
+    // 설정에서 '비공개 칸 보기'를 켰는지. 끄면 비공개 글은 어디에도 나오지 않음
+    showPrivate() {
+        return note_config.get('show_private') === 'on'
+    }
+
+    setShowPrivate(on) {
+        note_config.set('show_private', on ? 'on' : 'off')
+        if (!on && this.tab === 'private') this.tab = 'all'
+        note_config.set('tab', this.tab)
+        this.render()
+    }
+
     setTab(tab) {
         this.tab = tab
         note_config.set('tab', tab)
@@ -327,16 +342,20 @@ class PartyNote {
 
     render() {
         const rows = this.listRows()
+        // 비공개 글은 비공개 칸에만
         const in_tab = (tab) => rows.filter(r =>
-            tab === 'all' ? r.kind !== 'page' || this.words().length > 0
-                : tab === 'favorite' ? r.item.favorite
-                    : tab === 'memo' ? r.kind === 'memo' || (r.kind === 'page' && this.words().length > 0)
-                        : r.kind === 'book')
+            tab === 'private' ? r.item.hidden && (r.kind !== 'page' || this.words().length > 0)
+                : r.item.hidden ? false
+                    : tab === 'all' ? r.kind !== 'page' || this.words().length > 0
+                        : tab === 'favorite' ? r.item.favorite
+                            : tab === 'memo' ? r.kind === 'memo' || (r.kind === 'page' && this.words().length > 0)
+                                : r.kind === 'book')
         const tabs = [
             { value: 'all', label: '전체', icon: 'fas fa-layer-group' },
             { value: 'book', label: '책', icon: ICONS.book },
             { value: 'memo', label: '메모', icon: ICONS.memo },
             { value: 'favorite', label: '', aria: '즐겨찾기', icon: 'fas fa-star' },
+            ...(this.showPrivate() ? [{ value: 'private', label: '', aria: '비공개', icon: 'fas fa-eye-slash' }] : []),
         ]
         const trash_rows = this.trashRows()
         $('.type-tabs').innerHTML = tabs.map(t => `
@@ -358,6 +377,12 @@ class PartyNote {
         }
         if (this.q.trim()) {
             el.innerHTML = `<div class="empty-state"><i class="fas fa-search"></i><p>'${esc(this.q.trim())}'에 맞는 것이 없어요.</p></div>`
+        } else if (this.tab === 'private') {
+            el.innerHTML = `<div class="empty-state"><i class="fas fa-eye-slash"></i><p>아직 비공개 글이 없어요.<br>여기서 만든 메모와 책은 비공개로 저장돼요.</p>
+                <div class="empty-btns">
+                    <button type="button" class="btn primary" data-action="new-book"><i class="${ICONS.book}"></i> 책 만들기</button>
+                    <button type="button" class="btn ghost" data-action="new-memo"><i class="${ICONS.memo}"></i> 메모 쓰기</button>
+                </div></div>`
         } else if (this.tab === 'favorite') {
             el.innerHTML = `<div class="empty-state"><i class="far fa-star"></i><p>아직 즐겨찾기한 것이 없어요.<br>메모나 책을 열고 별을 눌러 보세요.</p></div>`
         } else {
@@ -382,14 +407,17 @@ class PartyNote {
 
     trashRows() {
         const searching = this.words().length > 0
+        const show_private = this.showPrivate()
         const rows = []
         for (const b of this.trash_books) {
+            if (b.hidden && !show_private) continue
             const pages = this.trashPages(b)
             if (searching && !this.textMatches([b.title, ...pages.flatMap(p => [p.title, p.content])].join('\n'))) continue
             rows.push({ kind: 'book', item: b, pages })
         }
         for (const m of this.trash_memos) {
             if (this.trash_books.some(b => b.id === m.book_id && b.deleted_at === m.deleted_at)) continue
+            if (m.hidden && !show_private) continue
             if (searching && !this.textMatches(`${m.title}\n${m.content}`)) continue
             rows.push({ kind: 'memo', item: m })
         }
@@ -413,7 +441,7 @@ class PartyNote {
                     <div class="item-row trashed" data-trash-kind="${r.kind}" data-trash-id="${r.item.id}" tabindex="0" role="button">
                         <i class="item-icon ${r.kind === 'book' ? ICONS.book : ICONS.memo}"></i>
                         <div class="item-body">
-                            <div class="item-title">${esc(r.item.title)}</div>
+                            <div class="item-title">${esc(r.item.title)}${r.item.hidden ? ` <i class="private-mark fas fa-eye-slash" aria-label="비공개"></i>` : ''}</div>
                             <div class="item-sub clip">${sub} · ${daysAgoLabel(r.item.deleted_at)} 지움</div>
                         </div>
                         <i class="item-arrow fas fa-ellipsis-h"></i>
@@ -458,6 +486,8 @@ class PartyNote {
         if (!book) {
             memo.book_id = 0
             memo.order = 0
+        } else {
+            memo.hidden = book.hidden ? 1 : 0
         }
         memo.deleted_at = 0
         await this.saveMemoRecord(memo, { touch: false })
@@ -621,8 +651,23 @@ class PartyNote {
         return `
             ${this.favoriteBtnHtml(b)}
             <button type="button" class="icon-btn" data-action="book-info" aria-label="책 정보"><i class="fas fa-info-circle"></i></button>
-            <button type="button" class="icon-btn" data-action="book-rename" aria-label="책 제목 고치기"><i class="fas fa-pen"></i></button>
-            ${b.locked ? '' : `<button type="button" class="icon-btn" data-action="book-delete" aria-label="책 삭제"><i class="far fa-trash-alt"></i></button>`}`
+            <button type="button" class="icon-btn" data-action="book-more" aria-label="더 보기"><i class="fas fa-ellipsis-h"></i></button>`
+    }
+
+    // 책의 … 버튼: 제목 고치기 / 삭제 (잠근 책은 삭제가 안 보임)
+    async openBookMenu() {
+        const b = this.book(this.open_book_id)
+        if (!b) return
+        const choice = await ui.openSheet({
+            title: b.title,
+            content: `
+                <div class="sheet-options">
+                    <button type="button" class="sheet-option" data-sheet-value="rename"><i class="fas fa-pen"></i> 제목 고치기</button>
+                    ${b.locked ? '' : `<button type="button" class="sheet-option danger" data-sheet-value="delete"><i class="far fa-trash-alt"></i> 삭제</button>`}
+                </div>`,
+        })
+        if (choice === 'rename') return this.renameBook()
+        if (choice === 'delete') return this.deleteBook()
     }
 
     // 열려 있는 책의 내용만 다시 그립니다. (스크롤 위치는 그대로)
@@ -633,7 +678,7 @@ class PartyNote {
         $('.popup-header .title').innerHTML = `<i class="${ICONS.book}"></i> ${esc(b.title)}`
         const pages = this.pages(b.id)
         const mark = pages.findIndex(p => p.id === b.bookmark_id)
-        const loose = this.memos.some(m => !m.book_id)
+        const loose = this.memos.some(m => !m.book_id && !!m.hidden === !!b.hidden)
         const status = statusOf(b)
         el.dataset.status = status
         // 보여 주는 순서만 뒤집음 (쪽 번호와 앞·뒤쪽으로 넘겨 읽는 순서는 그대로). 모든 책에 같은 설정
@@ -711,9 +756,14 @@ class PartyNote {
                         <b><i class="fas fa-file-export"></i> 책 내보내기</b>
                         <span>선물용 파일이나 워드·텍스트 문서로 만들어요</span>
                     </button>
+                    ${this.showPrivate() ? `
+                        <button type="button" class="status-btn" data-sheet-value="${b.hidden ? 'public' : 'private'}">
+                            <b><i class="fas ${b.hidden ? 'fa-eye' : 'fa-eye-slash'}"></i> ${b.hidden ? '비공개 풀기' : '비공개로 하기'}</b>
+                            <span>${b.hidden ? '다른 칸에도 다시 보여요' : '비공개 칸에만 보이고, 설정에서 끄면 어디에도 안 보여요'}</span>
+                        </button>` : ''}
                     <button type="button" class="status-btn" data-sheet-value="${b.locked ? 'unlock' : 'lock'}">
                         <b><i class="fas ${b.locked ? 'fa-lock-open' : 'fa-lock'}"></i> ${b.locked ? '잠금 풀기' : '책 잠그기'}</b>
-                        <span>${b.locked ? '삭제 버튼이 다시 보여요' : '실수로 지우지 않게 삭제 버튼을 숨겨요'}</span>
+                        <span>${b.locked ? '… 메뉴에 삭제가 다시 보여요' : '실수로 지우지 않게 … 메뉴에서 삭제를 숨겨요'}</span>
                     </button>
                     ${status === 'active' ? `
                         <button type="button" class="status-btn done" data-sheet-value="done">
@@ -732,10 +782,25 @@ class PartyNote {
         })
         if (choice === 'export') return this.exportBook()
         if (choice === 'lock' || choice === 'unlock') return this.setBookLock(choice === 'lock')
+        if (choice === 'private' || choice === 'public') return this.setBookHidden(choice === 'private')
         if (choice) this.setBookStatus(choice)
     }
 
-    // 책 잠금: 잠그면 삭제 버튼이 숨겨짐 (글을 쓰고 고치는 것은 그대로)
+    // 책 비공개: 안의 쪽도 같이 (휴지통에 있는 이 책의 쪽은 되살릴 때 책을 따라감)
+    async setBookHidden(hidden) {
+        const b = this.book(this.open_book_id)
+        if (!b) return
+        b.hidden = hidden ? 1 : 0
+        await this.saveBookRecord(b, { touch: false })
+        for (const p of this.pages(b.id)) {
+            p.hidden = b.hidden
+            await this.saveMemoRecord(p, { touch: false })
+        }
+        this.render()
+        ui.toast(hidden ? '비공개로 했어요 · 비공개 칸에서 볼 수 있어요' : '비공개를 풀었어요')
+    }
+
+    // 책 잠금: 잠그면 … 메뉴의 삭제가 숨겨짐 (글을 쓰고 고치는 것은 그대로)
     async setBookLock(locked) {
         const b = this.book(this.open_book_id)
         if (!b) return
@@ -812,8 +877,8 @@ class PartyNote {
         const payload = this.backupPayload([b], pages)
         payload.kind = 'book' // 전체 백업이 아니라 책 한 권이라는 표시 (받는 쪽 안내 문구용)
         // 내 즐겨찾기·책갈피는 받는 사람에게 넘기지 않음
-        payload.books.forEach(x => { x.favorite = 0; x.bookmark_uid = ''; x.locked = 0 }) // 잠금도 내 기기의 설정이라 넘기지 않음
-        payload.memos.forEach(x => { x.favorite = 0 })
+        payload.books.forEach(x => { x.favorite = 0; x.bookmark_uid = ''; x.locked = 0; x.hidden = 0 }) // 잠금도 내 기기의 설정이라 넘기지 않음
+        payload.memos.forEach(x => { x.favorite = 0; x.hidden = 0 })
         downloadText(`${name}.partynote.json`, JSON.stringify(payload, null, 2), 'application/json')
     }
 
@@ -922,7 +987,7 @@ class PartyNote {
     async pickLooseMemo() {
         const b = this.book(this.open_book_id)
         if (!b) return
-        const loose = this.memos.filter(m => !m.book_id).sort((x, y) => y.updated_at - x.updated_at)
+        const loose = this.memos.filter(m => !m.book_id && !!m.hidden === !!b.hidden).sort((x, y) => y.updated_at - x.updated_at)
         const choice = await ui.openSheet({
             title: '넣을 메모 고르기',
             content: `
@@ -941,6 +1006,7 @@ class PartyNote {
     async putIntoBook(memo, book) {
         memo.order = this.nextOrder(book.id)
         memo.book_id = book.id
+        memo.hidden = book.hidden ? 1 : 0
         await this.saveMemoRecord(memo, { touch: false })
         await this.saveBookRecord(book)
     }
@@ -1062,10 +1128,17 @@ class PartyNote {
                     <button type="button" class="sheet-option" data-sheet-value="edit"><i class="fas fa-pen"></i> 고치기</button>
                     <button type="button" class="sheet-option" data-sheet-value="move"><i class="${ICONS.book}"></i> ${m.book_id ? '다른 책으로 옮기기' : '책에 넣기'}</button>
                     ${m.book_id ? `<button type="button" class="sheet-option" data-sheet-value="out"><i class="fas fa-sign-out-alt"></i> 책에서 빼기 (낱장으로)</button>` : ''}
+                    ${!m.book_id && this.showPrivate() ? `<button type="button" class="sheet-option" data-sheet-value="hide"><i class="fas ${m.hidden ? 'fa-eye' : 'fa-eye-slash'}"></i> ${m.hidden ? '비공개 풀기' : '비공개로 하기'}</button>` : ''}
                     <button type="button" class="sheet-option danger" data-sheet-value="delete"><i class="far fa-trash-alt"></i> 삭제</button>
                 </div>`,
         })
         if (choice === 'edit') return this.nav('editMemo', [m.id])
+        if (choice === 'hide') {
+            m.hidden = m.hidden ? 0 : 1
+            await this.saveMemoRecord(m, { touch: false })
+            this.render()
+            return ui.toast(m.hidden ? '비공개로 했어요 · 비공개 칸에서 볼 수 있어요' : '비공개를 풀었어요')
+        }
         if (choice === 'move') return this.moveMemoToBook(m)
         if (choice === 'out') {
             await this.takeOutOfBook(m)
@@ -1088,7 +1161,8 @@ class PartyNote {
 
     // 넣을 책 고르기 (새 책 만들기 포함)
     async moveMemoToBook(m) {
-        const others = this.books.filter(b => b.id !== m.book_id).sort((x, y) => y.updated_at - x.updated_at)
+        // 비공개 글은 비공개 책끼리, 공개 글은 공개 책끼리
+        const others = this.books.filter(b => b.id !== m.book_id && !!b.hidden === !!m.hidden).sort((x, y) => y.updated_at - x.updated_at)
         const choice = await ui.openSheet({
             title: '어느 책에 넣을까요?',
             content: `
@@ -1103,6 +1177,8 @@ class PartyNote {
             const title = await ui.prompt('새 책의 제목을 적어 주세요.', { placeholder: '책 제목', ok: '만들기', maxlength: 60 })
             if (!title) return
             book = await this.insertBook(title)
+            book.hidden = m.hidden ? 1 : 0
+            await this.saveBookRecord(book, { touch: false })
         }
         if (!book) return
         const from = m.book_id ? this.book(m.book_id) : null
@@ -1365,7 +1441,7 @@ class PartyNote {
         const uid = (v) => (typeof v === 'string' && /^[a-z0-9]{6,40}$/.test(v) ? v : '')
         const title = text(raw.title, 100).trim()
         if (!title) return null
-        const base = { uid: uid(raw.uid) || newUid(), title, favorite: raw.favorite ? 1 : 0, created_at: time(raw.created_at), updated_at: time(raw.updated_at) }
+        const base = { uid: uid(raw.uid) || newUid(), title, favorite: raw.favorite ? 1 : 0, hidden: raw.hidden ? 1 : 0, created_at: time(raw.created_at), updated_at: time(raw.updated_at) }
         if (kind === 'book') {
             const status = ['done', 'stopped'].includes(raw.status) ? raw.status : 'active'
             return { ...idb.newRecord('book'), ...base, status, status_at: status === 'active' ? 0 : time(raw.status_at), locked: raw.locked ? 1 : 0, bookmark_uid: uid(raw.bookmark_uid) }

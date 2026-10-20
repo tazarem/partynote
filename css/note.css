@@ -554,6 +554,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 /* 휴지통 */
 .trash-head { font-size: .82rem; color: var(--sub); }
 .item-row.trashed .item-icon, .item-row.trashed .item-title { opacity: .55; }
+.private-mark { font-size: .75em; opacity: .6; }
 
 .item-list { display: flex; flex-direction: column; gap: .5rem; }
 .item-row {
