@@ -899,7 +899,10 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .popup[data-variant="reader"] .popup-content { padding-top: calc(3.35rem + 1rem); }
 .popup[data-variant="reader"].immersive .popup-header, .popup[data-variant="editor"].immersive .popup-header { transform: translateY(calc(-100% - env(safe-area-inset-top))); }
 .popup[data-variant="reader"] .page-nav { transition: transform .25s ease; }
-.popup[data-variant="reader"].immersive .page-nav { transform: translateY(100%); }
+/* 읽는 동안 쪽 넘기기 줄은 내려가도, 위쪽 가장자리의 읽은 만큼 막대(3px)는 화면 아래에 남김 */
+.popup[data-variant="reader"].immersive .page-nav { transform: translateY(calc(100% - 3px)); }
+.read-progress { position: absolute; left: 0; right: 0; top: -1px; height: 3px; pointer-events: none; }
+.read-progress i { display: block; height: 100%; background: var(--accent); transform: scaleX(var(--p, 0)); transform-origin: left; transition: transform .1s linear; }
 
 /* ---------- 편집 화면: 위쪽 줄의 저장 버튼 ---------- */
 .header-save, .header-cancel { padding: .35rem .75rem; font-size: .85rem; flex-shrink: 0; }

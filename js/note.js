@@ -1358,6 +1358,7 @@ class PartyNote {
                     <div class="memo-date">${esc(dateTimeLabel(m.updated_at))} 수정</div>
                     ${b ? `
                         <div class="page-nav">
+                            <div class="read-progress" aria-hidden="true"><i></i></div>
                             <button type="button" class="btn ghost" ${index > 0 ? `data-page-open="${pages[index - 1].id}"` : 'disabled'}><i class="fas fa-chevron-left"></i> 앞쪽</button>
                             <span class="page-nav-no">${index + 1} / ${pages.length}쪽</span>
                             <button type="button" class="btn ghost" ${index < pages.length - 1 ? `data-page-open="${pages[index + 1].id}"` : 'disabled'}>뒤쪽 <i class="fas fa-chevron-right"></i></button>
@@ -1365,6 +1366,7 @@ class PartyNote {
                 </div>`,
         })
         this.reader_y = 0
+        this.renderReadProgress()
         // 책갈피: 마지막으로 읽은 쪽 (고친 시각은 건드리지 않음)
         if (b && b.bookmark_id !== m.id) {
             b.bookmark_id = m.id
@@ -1378,6 +1380,7 @@ class PartyNote {
         const popup = $('.popup'), el = $('.popup-content')
         const mode = popup.dataset.variant
         if (mode !== 'reader' && mode !== 'editor') return
+        if (mode === 'reader') this.renderReadProgress()
         const y = el.scrollTop
         const delta = y - (this.reader_y ?? 0)
         this.reader_y = y
@@ -1385,6 +1388,14 @@ class PartyNote {
         const near_bottom = mode === 'reader' && el.scrollHeight - el.clientHeight - y < 24
         if (near_top || near_bottom || delta < -6) popup.classList.remove('immersive')
         else if (delta > 6) popup.classList.add('immersive')
+    }
+
+    // 쪽 넘기기 줄 위쪽 가장자리의 읽은 만큼 막대 (스크롤할 것이 없으면 다 찬 상태)
+    renderReadProgress() {
+        const bar = $('.read-progress i'), el = $('.popup-content')
+        if (!bar) return
+        const max = el.scrollHeight - el.clientHeight
+        bar.style.setProperty('--p', max > 1 ? Math.min(1, el.scrollTop / max) : 1)
     }
 
     // 메모의 내용을 클립보드로 (연재처의 글쓰기 칸에 붙여넣는 용도). 제목은 빼고 내용만, 줄바꿈 그대로.
