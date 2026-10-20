@@ -128,9 +128,18 @@ function periodLabel(from, to = Date.now()) {
     return `${parts.join(' ')}째`
 }
 
-// 내려받기: 글자를 파일로
+// 내려받기: 글자(또는 만들어 둔 Blob)를 파일로
+// 휴지통에 들어간 지 며칠: '오늘', '어제', '3일 전'
+function daysAgoLabel(time) {
+    const day = (t) => new Date(new Date(t).toDateString()).getTime()
+    const days = Math.round((day(Date.now()) - day(time)) / 86400000)
+    return days <= 0 ? '오늘' : days === 1 ? '어제' : `${days}일 전`
+}
+
+const TRASH_DAYS = 30 // 휴지통에 둔 지 이만큼 지나면 앱을 열 때 저절로 지움
+
 function downloadText(filename, text, type) {
-    const blob = new Blob([text], { type })
+    const blob = text instanceof Blob ? text : new Blob([text], { type })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = filename
@@ -143,7 +152,9 @@ class PartyNote {
     screen = null       // 팝업에 지금 보이는 화면 { kind, args }
     screen_stack = []   // 뒤로가기로 돌아갈 화면들
     books = []
-    tab = 'all'         // all | memo | book | favorite
+    trash_memos = []    // 휴지통의 메모 (위의 memos·books에는 들어 있지 않음)
+    trash_books = []
+    tab = 'all'         // all | memo | book | favorite | trash
     q = ''              // 검색어
     open_memo_id = null // 지금 팝업에 열려 있는 메모
     open_book_id = null // 지금 팝업에 열려 있는 책 (책 속의 메모를 읽는 중에도 유지)
@@ -155,11 +166,16 @@ class PartyNote {
 
     async init() {
         this.applyTheme(note_config.get('app_theme'))
-        this.tab = ['all', 'memo', 'book', 'favorite'].includes(note_config.get('tab')) ? note_config.get('tab') : 'all'
+        this.tab = ['all', 'memo', 'book', 'favorite', 'trash'].includes(note_config.get('tab')) ? note_config.get('tab') : 'all'
         await idb.openDatabase()
         const moved = await this.migrateLegacy()
-        this.memos = await idb.doSelectAll('memo')
-        this.books = await idb.doSelectAll('book')
+        const memos = await idb.doSelectAll('memo')
+        const books = await idb.doSelectAll('book')
+        this.memos = memos.filter(m => !m.deleted_at)
+        this.books = books.filter(b => !b.deleted_at)
+        this.trash_memos = memos.filter(m => m.deleted_at)
+        this.trash_books = books.filter(b => b.deleted_at)
+        await this.purgeOldTrash()
         this.render()
         if (moved) ui.toast(`예전 파티노트의 글 ${moved}개를 가져왔어요`)
     }
@@ -322,10 +338,15 @@ class PartyNote {
             { value: 'memo', label: '메모', icon: ICONS.memo },
             { value: 'favorite', label: '', aria: '즐겨찾기', icon: 'fas fa-star' },
         ]
+        const trash_rows = this.trashRows()
         $('.type-tabs').innerHTML = tabs.map(t => `
             <button type="button" role="tab" data-tab="${t.value}" aria-selected="${this.tab === t.value}"${t.aria ? ` aria-label="${t.aria}"` : ''}>
                 <i class="${t.icon}"></i> ${t.label} <span class="count">${in_tab(t.value).length}</span>
-            </button>`).join('')
+            </button>`).join('') + `
+            <button type="button" role="tab" class="trash-tab" data-tab="trash" aria-selected="${this.tab === 'trash'}" aria-label="휴지통">
+                <i class="far fa-trash-alt"></i>${trash_rows.length ? ` <span class="count">${trash_rows.length}</span>` : ''}
+            </button>`
+        if (this.tab === 'trash') return this.renderTrash(trash_rows)
 
         // 즐겨찾기가 맨 위, 그 안에서는 최근 고친 순
         const rank = (r) => r.kind === 'book' ? BOOK_STATUS[statusOf(r.item)].order : 0 // 완결·연재 중지한 책은 뒤로
@@ -351,6 +372,137 @@ class PartyNote {
                     </div>
                 </div>`
         }
+    }
+
+    /* ---------- 휴지통 ---------- */
+    // 책과 함께 휴지통에 들어간 쪽(같은 시각에 지운 것)은 책 줄 안에 묶어서 따로 보여 주지 않습니다.
+    trashPages(book) {
+        return this.trash_memos.filter(m => m.book_id === book.id && m.deleted_at === book.deleted_at)
+    }
+
+    trashRows() {
+        const searching = this.words().length > 0
+        const rows = []
+        for (const b of this.trash_books) {
+            const pages = this.trashPages(b)
+            if (searching && !this.textMatches([b.title, ...pages.flatMap(p => [p.title, p.content])].join('\n'))) continue
+            rows.push({ kind: 'book', item: b, pages })
+        }
+        for (const m of this.trash_memos) {
+            if (this.trash_books.some(b => b.id === m.book_id && b.deleted_at === m.deleted_at)) continue
+            if (searching && !this.textMatches(`${m.title}\n${m.content}`)) continue
+            rows.push({ kind: 'memo', item: m })
+        }
+        return rows.sort((a, b) => b.item.deleted_at - a.item.deleted_at)
+    }
+
+    renderTrash(rows) {
+        const el = $('.item-list')
+        if (!rows.length) {
+            el.innerHTML = this.q.trim()
+                ? `<div class="empty-state"><i class="fas fa-search"></i><p>휴지통에 '${esc(this.q.trim())}'에 맞는 것이 없어요.</p></div>`
+                : `<div class="empty-state"><i class="far fa-trash-alt"></i><p>휴지통이 비어 있어요.<br>삭제한 메모와 책은 ${TRASH_DAYS}일 동안 여기에 남아요.</p></div>`
+            return
+        }
+        el.innerHTML = `
+            <div class="trash-head">
+                <span>${TRASH_DAYS}일이 지나면 저절로 사라져요</span>
+                <button type="button" class="btn danger-ghost" data-action="empty-trash"><i class="far fa-trash-alt"></i> 휴지통 비우기</button>
+            </div>
+            ${rows.map(r => {
+                const from = r.kind === 'memo' && r.item.book_id ? [...this.books, ...this.trash_books].find(b => b.id === r.item.book_id) : null
+                const sub = r.kind === 'book' ? `책 · ${r.pages.length ? `${r.pages.length}쪽` : '빈 책'}` : from ? `'${esc(from.title)}'의 쪽` : '메모'
+                return `
+                    <div class="item-row trashed" data-trash-kind="${r.kind}" data-trash-id="${r.item.id}" tabindex="0" role="button">
+                        <i class="item-icon ${r.kind === 'book' ? ICONS.book : ICONS.memo}"></i>
+                        <div class="item-body">
+                            <div class="item-title">${esc(r.item.title)}</div>
+                            <div class="item-sub clip">${sub} · ${daysAgoLabel(r.item.deleted_at)} 지움</div>
+                        </div>
+                        <i class="item-arrow fas fa-ellipsis-h"></i>
+                    </div>`
+            }).join('')}`
+    }
+
+    // 메모를 휴지통으로. 책 속의 쪽이면 어느 책이었는지(book_id)는 남겨 두고, 되살릴 때 그 책으로 돌아갑니다.
+    async trashMemo(memo, at = Date.now()) {
+        memo.deleted_at = at
+        await this.saveMemoRecord(memo, { touch: false })
+        this.memos = this.memos.filter(m => m.id !== memo.id)
+        this.trash_memos.push(memo)
+    }
+
+    // 휴지통의 한 줄을 눌렀을 때: 되살리기 / 영구 삭제
+    async openTrashItem(kind, id) {
+        const item = (kind === 'book' ? this.trash_books : this.trash_memos).find(x => x.id === id)
+        if (!item) return
+        const choice = await ui.choose(`'${item.title}' ${kind === 'book' ? '책' : '메모'}을 어떻게 할까요?\n영구 삭제하면 되돌릴 수 없어요.`, [
+            { value: 'restore', label: '되살리기', style: 'primary' },
+            { value: 'delete', label: '영구 삭제', style: 'danger-ghost' },
+        ], { stack: true })
+        if (choice === 'restore') {
+            const where = kind === 'book' ? await this.restoreBook(item) : await this.restoreMemo(item)
+            ui.toast(where)
+        } else if (choice === 'delete') {
+            await this.destroyTrash(kind, item)
+            ui.toast('영구 삭제했어요')
+        } else {
+            return
+        }
+        this.render()
+    }
+
+    // 원래 책이 남아 있으면 그 책의 원래 자리로, 없으면 낱장으로
+    async restoreMemo(memo) {
+        const book = memo.book_id ? this.book(memo.book_id) : null
+        if (!book) {
+            memo.book_id = 0
+            memo.order = 0
+        }
+        memo.deleted_at = 0
+        await this.saveMemoRecord(memo, { touch: false })
+        this.trash_memos = this.trash_memos.filter(m => m.id !== memo.id)
+        this.memos.push(memo)
+        return book ? `'${book.title}' 책으로 되살렸어요` : '메모를 되살렸어요'
+    }
+
+    async restoreBook(book) {
+        const pages = this.trashPages(book)
+        book.deleted_at = 0
+        await this.saveBookRecord(book, { touch: false })
+        this.trash_books = this.trash_books.filter(b => b.id !== book.id)
+        this.books.push(book)
+        for (const p of pages) await this.restoreMemo(p)
+        return pages.length ? `책과 ${pages.length}쪽을 되살렸어요` : '책을 되살렸어요'
+    }
+
+    // 정말로 지우기 (책이면 같이 휴지통에 들어간 쪽까지)
+    async destroyTrash(kind, item) {
+        if (kind === 'book') {
+            for (const p of this.trashPages(item)) await this.destroyTrash('memo', p)
+            await idb.doDelete('book', item.id)
+            this.trash_books = this.trash_books.filter(b => b.id !== item.id)
+        } else {
+            await idb.doDelete('memo', item.id)
+            this.trash_memos = this.trash_memos.filter(m => m.id !== item.id)
+        }
+    }
+
+    async emptyTrash() {
+        const count = this.trash_books.length + this.trash_memos.length
+        if (!count) return
+        if (!(await ui.confirm(`휴지통의 메모와 책을 모두 영구 삭제할까요?\n되돌릴 수 없어요.`, { ok: '비우기', danger: true }))) return
+        for (const b of [...this.trash_books]) await this.destroyTrash('book', b)
+        for (const m of [...this.trash_memos]) await this.destroyTrash('memo', m)
+        this.render()
+        ui.toast('휴지통을 비웠어요')
+    }
+
+    // 앱을 열 때: 오래된 것 정리
+    async purgeOldTrash() {
+        const limit = Date.now() - TRASH_DAYS * 86400000
+        for (const b of this.trash_books.filter(b => b.deleted_at < limit)) await this.destroyTrash('book', b)
+        for (const m of this.trash_memos.filter(m => m.deleted_at < limit)) await this.destroyTrash('memo', m)
     }
 
     favoriteMarkHtml(item) {
@@ -567,7 +719,7 @@ class PartyNote {
                 <div class="status-actions">
                     <button type="button" class="status-btn" data-sheet-value="export">
                         <b><i class="fas fa-file-export"></i> 책 내보내기</b>
-                        <span>파일로 만들어 다른 파티노트 이용자에게 선물해요</span>
+                        <span>선물용 파일이나 워드·텍스트 문서로 만들어요</span>
                     </button>
                     <button type="button" class="status-btn" data-sheet-value="${b.locked ? 'unlock' : 'lock'}">
                         <b><i class="fas ${b.locked ? 'fa-lock-open' : 'fa-lock'}"></i> ${b.locked ? '잠금 풀기' : '책 잠그기'}</b>
@@ -646,21 +798,43 @@ class PartyNote {
         setTimeout(() => layer.remove(), 1700)
     }
 
-    // 책 한 권 내보내기: 다른 파티노트 이용자가 '가져오기'로 받을 수 있는 파일 (책 선물)
-    exportBook() {
+    // 책 한 권 내보내기: 선물용(.json) / 워드 문서(.docx) / 텍스트(.txt) 중 고름
+    async exportBook() {
         const b = this.book(this.open_book_id)
         if (!b) return
         const pages = this.pages(b.id)
         if (!pages.length) return ui.toast('아직 내보낼 쪽이 없어요')
+        const kind = await ui.choose(`'${b.title}' 책을 어떤 파일로 내보낼까요?`, [
+            { value: 'json', label: '선물용 파일 (.json) · 파티노트에서 가져오기' },
+            { value: 'docx', label: '워드 문서 (.docx) · 워드, 구글 Docs, 한글' },
+            { value: 'txt', label: '텍스트 파일 (.txt)' },
+        ], { stack: true })
+        if (!kind) return
+        // 파일 이름에 쓸 수 없는 글자는 뺌
+        const name = b.title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').trim().slice(0, 60) || 'book'
+        if (kind === 'json') this.exportBookGift(b, pages, name)
+        else this.exportBookDocument(b, pages, name, kind)
+        ui.toast(`'${b.title}' ${pages.length}쪽을 내보냈어요`)
+    }
+
+    // 다른 파티노트 이용자가 '가져오기'로 받을 수 있는 파일 (책 선물)
+    exportBookGift(b, pages, name) {
         const payload = this.backupPayload([b], pages)
         payload.kind = 'book' // 전체 백업이 아니라 책 한 권이라는 표시 (받는 쪽 안내 문구용)
         // 내 즐겨찾기·책갈피는 받는 사람에게 넘기지 않음
         payload.books.forEach(x => { x.favorite = 0; x.bookmark_uid = ''; x.locked = 0 }) // 잠금도 내 기기의 설정이라 넘기지 않음
         payload.memos.forEach(x => { x.favorite = 0 })
-        // 파일 이름에 쓸 수 없는 글자는 뺌
-        const name = b.title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').trim().slice(0, 60) || 'book'
         downloadText(`${name}.partynote.json`, JSON.stringify(payload, null, 2), 'application/json')
-        ui.toast(`'${b.title}' ${pages.length}쪽을 내보냈어요`)
+    }
+
+    // 읽는 용도의 문서: 책 제목과 기간 → 쪽마다 제목과 본문
+    exportBookDocument(b, pages, name, kind) {
+        const status = statusOf(b)
+        const info = [`${fullDate(b.created_at)} ~ ${status === 'active' ? '쓰는 중' : `${fullDate(b.status_at)} ${BOOK_STATUS[status].short}`}`, `${pages.length}쪽`]
+        if (kind === 'docx') return downloadText(`${name}.docx`, makeBookDocx(b, info, pages))
+        const line = '─'.repeat(20)
+        const text = [b.title, ...info, '', ...pages.flatMap(p => [line, p.title, line, '', ...p.content.split(/\r\n?|\n/), '', ''])].join('\r\n')
+        downloadText(`${name}.txt`, '\ufeff' + text, 'text/plain;charset=utf-8') // 윈도 메모장에서도 한글이 안 깨지게 BOM
     }
 
     // 쪽 목록을 오름차순 ↔ 내림차순으로. 한 번 바꾸면 다른 책에도 똑같이 적용됩니다.
@@ -688,31 +862,33 @@ class PartyNote {
         const pages = this.pages(b.id)
         let with_pages = false
         if (pages.length) {
-            const choice = await ui.choose(`'${b.title}' 책을 삭제할까요?\n안에 메모 ${pages.length}개가 있어요.`, [
+            const choice = await ui.choose(`'${b.title}' 책을 휴지통으로 옮길까요?\n안에 메모 ${pages.length}개가 있어요.`, [
                 { value: 'keep', label: '책만 삭제 (메모는 낱장으로 남기기)', style: 'danger-ghost' },
                 { value: 'all', label: '메모까지 모두 삭제', style: 'danger' },
             ], { stack: true })
             if (!choice) return
             with_pages = choice === 'all'
-        } else if (!(await ui.confirm(`'${b.title}' 책을 삭제할까요?`, { ok: '삭제', danger: true }))) {
+        } else if (!(await ui.confirm(`'${b.title}' 책을 휴지통으로 옮길까요?\n${TRASH_DAYS}일 동안 휴지통에서 되살릴 수 있어요.`, { ok: '삭제', danger: true }))) {
             return
         }
+        const at = Date.now() // 책과 같은 시각으로 표시해 두면 되살릴 때 함께 돌아옴
         for (const p of pages) {
             if (with_pages) {
-                await idb.doDelete('memo', p.id)
+                await this.trashMemo(p, at)
             } else {
                 p.book_id = 0
                 p.order = 0
                 await this.saveMemoRecord(p, { touch: false })
             }
         }
-        if (with_pages) this.memos = this.memos.filter(m => m.book_id !== b.id)
-        await idb.doDelete('book', b.id)
+        b.deleted_at = at
+        await this.saveBookRecord(b, { touch: false })
         this.books = this.books.filter(x => x.id !== b.id)
+        this.trash_books.push(b)
         this.open_book_id = null
         this.render()
         ui.closePopup()
-        ui.toast('책을 삭제했어요')
+        ui.toast('책을 휴지통으로 옮겼어요')
     }
 
     // 쪽 한 줄의 … 버튼: 순서 옮기기 / 책에서 빼기 / 삭제
@@ -742,8 +918,9 @@ class PartyNote {
         } else if (choice === 'out') {
             await this.takeOutOfBook(m)
         } else if (choice === 'delete') {
-            if (!(await ui.confirm(`'${m.title}' 메모를 삭제할까요?\n되돌릴 수 없어요.`, { ok: '삭제', danger: true }))) return
+            if (!(await ui.confirm(`'${m.title}' 메모를 휴지통으로 옮길까요?\n${TRASH_DAYS}일 동안 휴지통에서 되살릴 수 있어요.`, { ok: '삭제', danger: true }))) return
             await this.removeMemo(m)
+            ui.toast('휴지통으로 옮겼어요')
         } else {
             return
         }
@@ -791,8 +968,7 @@ class PartyNote {
 
     async removeMemo(memo) {
         const book = memo.book_id ? this.book(memo.book_id) : null
-        await idb.doDelete('memo', memo.id)
-        this.memos = this.memos.filter(m => m.id !== memo.id)
+        await this.trashMemo(memo)
         if (book) {
             if (book.bookmark_id === memo.id) book.bookmark_id = 0
             await this.saveBookRecord(book)
@@ -908,12 +1084,12 @@ class PartyNote {
             return this.openMemo(m.id)
         }
         if (choice === 'delete') {
-            if (!(await ui.confirm(`'${m.title}' 메모를 삭제할까요?\n되돌릴 수 없어요.`, { ok: '삭제', danger: true }))) return
+            if (!(await ui.confirm(`'${m.title}' 메모를 휴지통으로 옮길까요?\n${TRASH_DAYS}일 동안 휴지통에서 되살릴 수 있어요.`, { ok: '삭제', danger: true }))) return
             const book_id = m.book_id
             await this.removeMemo(m)
             this.open_memo_id = null
             this.render()
-            ui.toast('메모를 삭제했어요')
+            ui.toast('휴지통으로 옮겼어요')
             // 책 속의 쪽이었으면 책으로, 낱장이었으면 닫기
             if (book_id && this.book(book_id)) return this.backTo('openBook', book_id)
             ui.closePopup()
@@ -1231,7 +1407,10 @@ class PartyNote {
         let added = 0, updated = 0
         // 1) 책 먼저 (메모가 가리킬 번호가 있어야 함)
         const bookmarks = [] // [책, 책갈피 메모의 uid]
+        // 휴지통에 있는 것은 건드리지 않음 (되살리기는 휴지통에서)
+        const trashed = new Set([...this.trash_books, ...this.trash_memos].map(x => x.uid))
         for (const { bookmark_uid, ...book } of books) {
+            if (trashed.has(book.uid)) continue
             let mine = this.books.find(b => b.uid === book.uid)
             if (!mine) {
                 book.id = await idb.doInsert('book', book)
@@ -1248,6 +1427,7 @@ class PartyNote {
         }
         // 2) 메모
         for (const { book_uid, ...memo } of memos) {
+            if (trashed.has(memo.uid)) continue
             memo.book_id = this.books.find(b => b.uid === book_uid)?.id || 0
             const mine = this.memos.find(m => m.uid === memo.uid)
             if (!mine) {
@@ -1279,13 +1459,16 @@ class PartyNote {
     }
 
     async deleteAll() {
-        if (!this.memos.length && !this.books.length) return ui.toast('지울 것이 없어요')
-        const ok = await ui.confirmTyped(`메모 ${this.memos.length}개와 책 ${this.books.length}권을 모두 지워요.\n되돌릴 수 없어요.`, '정말로 전체 삭제')
+        const trash_count = this.trash_memos.length + this.trash_books.length
+        if (!this.memos.length && !this.books.length && !trash_count) return ui.toast('지울 것이 없어요')
+        const ok = await ui.confirmTyped(`메모 ${this.memos.length}개와 책 ${this.books.length}권을 모두 지워요.${trash_count ? ' 휴지통도 비워요.' : ''}\n되돌릴 수 없어요.`, '정말로 전체 삭제')
         if (!ok) return
         await idb.doTruncate('memo')
         await idb.doTruncate('book')
         this.memos = []
         this.books = []
+        this.trash_memos = []
+        this.trash_books = []
         this.render()
         ui.setDrawer(false)
         ui.toast('모두 삭제했어요')

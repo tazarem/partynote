@@ -67,6 +67,8 @@ class PartyNoteInit {
 
         const list = $('.item-list')
         const open = (e) => {
+            const trashed = e.target.closest('[data-trash-id]')
+            if (trashed) return party_note.openTrashItem(trashed.dataset.trashKind, Number(trashed.dataset.trashId))
             const book = e.target.closest('[data-book-id]')
             if (book) return party_note.openBook(Number(book.dataset.bookId))
             const memo = e.target.closest('[data-memo-id]')
@@ -76,6 +78,7 @@ class PartyNoteInit {
             const action = e.target.closest('[data-action]')
             if (action?.dataset.action === 'new-memo') return party_note.editMemo(null)
             if (action?.dataset.action === 'new-book') return party_note.newBook()
+            if (action?.dataset.action === 'empty-trash') return party_note.emptyTrash()
             open(e)
         })
         list.addEventListener('keydown', (e) => {

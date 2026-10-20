@@ -23,6 +23,7 @@ class IndexedDBClient {
                 book_id: 0,         // 들어 있는 책 (0 = 낱장)
                 order: 0,           // 책 안에서의 순서 (작을수록 앞쪽)
                 favorite: 0,        // 즐겨찾기 0 | 1
+                deleted_at: 0,      // 휴지통으로 옮긴 시각 (0 = 휴지통 아님)
                 created_at: 0,
                 updated_at: 0,
             }
@@ -42,6 +43,7 @@ class IndexedDBClient {
                 status: 'active',   // active(쓰는 중) | done(완결) | stopped(연재 중지)
                 status_at: 0,       // 완결·중지한 시각 (쓰는 중이면 0)
                 locked: 0,          // 잠금 0 | 1 (잠근 책은 삭제 버튼이 숨겨짐)
+                deleted_at: 0,      // 휴지통으로 옮긴 시각 (0 = 휴지통 아님)
                 created_at: 0,
                 updated_at: 0,
             }
