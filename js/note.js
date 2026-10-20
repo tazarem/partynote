@@ -33,7 +33,7 @@ const DRAFT_INTERVAL = 8000 // 쓰는 동안 8초에 한 번 임시 저장
 // 기기에 남기는 화면 설정 (테마, 마지막으로 보던 탭)
 const note_config = (() => {
     const KEY = 'ptnt_config'
-    const defaults = { app_theme: 'partynote', tab: 'all', page_sort: 'asc', empty_title: 'number', show_private: 'off', epub_author: '' } // page_sort: 책 안의 쪽을 보여 주는 순서 (모든 책 공통)
+    const defaults = { app_theme: 'partynote', tab: 'all', page_sort: 'asc', show_private: 'off', epub_author: '' } // page_sort: 책 안의 쪽을 보여 주는 순서 (모든 책 공통)
     let data = { ...defaults }
     try { data = { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch (e) { }
     return {
@@ -160,6 +160,19 @@ function isCoverImage(v) {
 }
 
 // 내려받기: 글자(또는 만들어 둔 Blob)를 파일로
+// 메모를 부르는 이름: 본문의 첫 줄 (메모에는 제목 칸이 없음). max를 주면 그 글자 수에서 자름
+function memoLabel(m, max = 0) {
+    const line = String(m?.content || '').split(/\r\n?|\n/).map(x => x.trim()).find(Boolean) || '빈 메모'
+    return max && line.length > max ? `${line.slice(0, max)}…` : line
+}
+
+// 예전 제목을 본문 첫머리로 (제목 + 빈 줄 + 본문). 자동으로 붙었던 '3편'·'무제2'는 버림 (날짜 제목은 남김)
+function mergeTitle(title, content) {
+    const t = String(title || '').trim()
+    if (!t || /^(\d+편|무제\d+)$/.test(t)) return content
+    return content.trim() ? `${t}\n\n${content}` : t
+}
+
 // 휴지통에 들어간 지 며칠: '오늘', '어제', '3일 전'
 function daysAgoLabel(time) {
     const day = (t) => new Date(new Date(t).toDateString()).getTime()
@@ -202,6 +215,7 @@ class PartyNote {
         const moved = await this.migrateLegacy()
         const memos = await idb.doSelectAll('memo')
         const books = await idb.doSelectAll('book')
+        await this.mergeOldTitles(memos)
         this.memos = memos.filter(m => !m.deleted_at)
         this.books = books.filter(b => !b.deleted_at)
         this.trash_memos = memos.filter(m => m.deleted_at)
@@ -220,13 +234,25 @@ class PartyNote {
         $$('input[name="app_theme"]').forEach(el => el.checked = el.value === name)
         this.renderEpubAuthor()
         $$('input[name="show_private"]').forEach(el => el.checked = el.value === (this.showPrivate() ? 'on' : 'off'))
-        $$('input[name="empty_title"]').forEach(el => el.checked = el.value === (note_config.get('empty_title') === 'date' ? 'date' : 'number'))
         this.theme = theme
     }
 
     coverColor(book) {
         const pack = this.theme.cover_pack
         return pack[book.id % pack.length]
+    }
+
+    // v1.25: 메모의 제목 칸을 없애면서, 있던 제목을 본문 첫머리로 옮깁니다. (처음 한 번. 원래 제목은 old_title에 남김)
+    async mergeOldTitles(memos) {
+        if (await idb.getMeta('titles_merged')) return
+        for (const m of memos) {
+            if (!m.title) continue
+            m.content = mergeTitle(m.title, m.content)
+            m.old_title = m.title
+            m.title = ''
+            await idb.doUpdate('memo', m.id, m)
+        }
+        await idb.setMeta('titles_merged', Date.now())
     }
 
     /* ---------- 예전 파티노트 글 가져오기 ---------- */
@@ -240,12 +266,12 @@ class PartyNote {
                 const val = row?.val
                 if (!val || typeof val !== 'object') continue
                 const content = legacyHtmlToText(val.contents)
-                const title = String(val.title ?? '').trim().slice(0, 100) || content.split('\n')[0].slice(0, 100)
-                if (!title && !content) continue
+                const merged = mergeTitle(String(val.title ?? '').trim().slice(0, 100), content)
+                if (!merged.trim()) continue
                 // 옛 날짜 모양: '2024/07/11 13:05:09'
                 const parsed = new Date(String(val.date ?? '').replace(/\//g, '-').replace(' ', 'T')).getTime()
                 const time = Number.isFinite(parsed) ? parsed : Date.now()
-                await idb.doInsert('memo', { ...idb.newRecord('memo'), uid: newUid(), title: title || '제목 없음', content, created_at: time, updated_at: time })
+                await idb.doInsert('memo', { ...idb.newRecord('memo'), uid: newUid(), content: merged, created_at: time, updated_at: time })
                 moved++
             }
         } catch (e) {
@@ -326,6 +352,123 @@ class PartyNote {
         return this.pages(book_id).reduce((max, m) => Math.max(max, m.order), 0) + 1
     }
 
+    /* ---------- 장 ---------- */
+    // 책 기록의 chapters: [{ uid, title, at }]. at = 장이 시작되는 쪽의 uid ('' = 맨 끝, 다음에 쓸 쪽부터)
+    chapters(b) {
+        return Array.isArray(b?.chapters) ? b.chapters : []
+    }
+
+    // 장의 자리: 몇 번째 쪽 앞인지 (0부터, 맨 끝은 쪽 수)
+    chapterSlot(c, pages) {
+        const i = pages.findIndex(p => p.uid === c.at)
+        return i >= 0 ? i : pages.length
+    }
+
+    // 쪽을 옮기거나 빼는 동안 장 구분선은 그 자리(몇 번째 쪽 앞)를 지킴: 끝나면 그 자리에 온 쪽에 다시 붙임
+    async keepChapterSlots(b, fn) {
+        if (!this.chapters(b).length) return fn()
+        const before = this.pages(b.id)
+        const slots = this.chapters(b).map(c => this.chapterSlot(c, before))
+        const result = await fn()
+        const after = this.pages(b.id)
+        this.chapters(b).forEach((c, i) => c.at = after[slots[i]]?.uid || '')
+        await this.saveBookRecord(b, { touch: false })
+        return result
+    }
+
+    // 쪽 목록을 장으로 나눈 구간들: [{ chapter (없으면 null), pages: [[쪽, 번호(0부터)]] }]
+    sections(b, pages = this.pages(b.id)) {
+        const at = new Map()
+        for (const c of this.chapters(b)) {
+            const slot = this.chapterSlot(c, pages)
+            at.set(slot, [...(at.get(slot) || []), c])
+        }
+        const out = [{ chapter: null, pages: [] }]
+        for (let i = 0; i <= pages.length; i++) {
+            for (const c of at.get(i) || []) out.push({ chapter: c, pages: [] })
+            if (i < pages.length) out[out.length - 1].pages.push([pages[i], i])
+        }
+        return out.filter((sec, i) => i > 0 || sec.pages.length) // 첫 장 앞에 쪽이 없으면 뺌
+    }
+
+    // 맨 끝에 둔 장('다음에 쓸 쪽부터')은 책 맨 뒤에 새로 들어온 쪽에서 시작
+    async claimEndChapters(b, page) {
+        const ends = this.chapters(b).filter(c => !c.at)
+        if (!ends.length) return
+        ends.forEach(c => c.at = page.uid)
+        await this.saveBookRecord(b, { touch: false })
+    }
+
+    // 이 쪽에서 시작하는 장 (읽기 화면의 본문 위에 장 제목)
+    chapterStartingAt(b, page) {
+        return this.chapters(b).filter(c => c.at === page.uid).pop() || null
+    }
+
+    // 장을 둘 자리 고르기: 'N쪽 앞에' 또는 '맨 끝에'. 결과는 쪽 uid ('' = 맨 끝), 취소는 null
+    async pickChapterPlace(b, message) {
+        const pages = this.pages(b.id)
+        if (!pages.length) return ''
+        const pick = await ui.promptNumber(message, {
+            max: pages.length,
+            placeholder: `쪽 번호 (1~${pages.length})`,
+            buttons: [
+                { value: 'end', label: () => '맨 끝에', always: true },
+                { value: 'before', label: (n) => n ? `${n}쪽 앞에` : '쪽 앞에' },
+            ],
+        })
+        if (!pick) return null
+        return pick.value === 'end' ? '' : pages[pick.n - 1].uid
+    }
+
+    async addChapter() {
+        const b = this.book(this.open_book_id)
+        if (!b) return
+        const title = await ui.prompt('장 제목을 적어 주세요.', { placeholder: '예: 2장. 가을', ok: '다음', maxlength: 60 })
+        if (!title) return
+        const at = await this.pickChapterPlace(b, `'${title}' 장을 어디서부터 시작할까요?`)
+        if (at === null) return
+        if (this.chapters(b).some(c => c.at === at)) return ui.toast('그 자리에는 이미 장이 있어요')
+        b.chapters = [...this.chapters(b), { uid: newUid(), title, at }]
+        await this.saveBookRecord(b)
+        this.render()
+        this.renderBook()
+        ui.toast('장을 추가했어요')
+    }
+
+    // 장 구분선의 … 버튼: 제목 고치기 / 위치 옮기기 / 장 없애기 (쪽은 그대로)
+    async openChapterMenu(uid) {
+        const b = this.book(this.open_book_id)
+        const c = this.chapters(b).find(x => x.uid === uid)
+        if (!c) return
+        const choice = await ui.openSheet({
+            title: c.title,
+            content: `
+                <div class="sheet-options">
+                    <button type="button" class="sheet-option" data-sheet-value="rename"><i class="fas fa-pen"></i> 장 제목 고치기</button>
+                    <button type="button" class="sheet-option" data-sheet-value="move"><i class="fas fa-exchange-alt"></i> 위치 옮기기</button>
+                    <button type="button" class="sheet-option danger" data-sheet-value="remove"><i class="fas fa-times"></i> 장 없애기 (쪽은 그대로)</button>
+                </div>`,
+        })
+        if (choice === 'rename') {
+            const title = await ui.prompt('장 제목을 고쳐 주세요.', { value: c.title, ok: '저장', maxlength: 60 })
+            if (!title || title === c.title) return
+            c.title = title
+        } else if (choice === 'move') {
+            const at = await this.pickChapterPlace(b, `'${c.title}' 장을 어디로 옮길까요?`)
+            if (at === null || at === c.at) return
+            if (this.chapters(b).some(x => x !== c && x.at === at)) return ui.toast('그 자리에는 이미 장이 있어요')
+            c.at = at
+        } else if (choice === 'remove') {
+            if (!(await ui.confirm(`'${c.title}' 장을 없앨까요?\n구분선만 사라지고 쪽은 그대로 남아요.`, { ok: '없애기', danger: true }))) return
+            b.chapters = this.chapters(b).filter(x => x !== c)
+        } else {
+            return
+        }
+        await this.saveBookRecord(b)
+        this.render()
+        this.renderBook()
+    }
+
     /* ---------- 목록 ---------- */
     // 설정에서 '비공개 칸 보기'를 켰는지. 끄면 비공개 글은 어디에도 나오지 않음
     showPrivate() {
@@ -361,11 +504,11 @@ class PartyNote {
         const rows = []
         for (const b of this.books) {
             const pages = this.pages(b.id)
-            if (searching && !this.textMatches([b.title, ...pages.flatMap(p => [p.title, p.content])].join('\n'))) continue
+            if (searching && !this.textMatches([b.title, ...this.chapters(b).map(c => c.title), ...pages.map(p => p.content)].join('\n'))) continue
             rows.push({ kind: 'book', item: b })
         }
         for (const m of this.memos) {
-            if (searching && !this.textMatches(`${m.title}\n${m.content}`)) continue
+            if (searching && !this.textMatches(m.content)) continue
             if (m.book_id && !searching && !m.favorite) continue // 책 속의 쪽은 평소엔 책 안에서만
             rows.push({ kind: m.book_id ? 'page' : 'memo', item: m })
         }
@@ -444,13 +587,13 @@ class PartyNote {
         for (const b of this.trash_books) {
             if (b.hidden && !show_private) continue
             const pages = this.trashPages(b)
-            if (searching && !this.textMatches([b.title, ...pages.flatMap(p => [p.title, p.content])].join('\n'))) continue
+            if (searching && !this.textMatches([b.title, ...this.chapters(b).map(c => c.title), ...pages.map(p => p.content)].join('\n'))) continue
             rows.push({ kind: 'book', item: b, pages })
         }
         for (const m of this.trash_memos) {
             if (this.trash_books.some(b => b.id === m.book_id && b.deleted_at === m.deleted_at)) continue
             if (m.hidden && !show_private) continue
-            if (searching && !this.textMatches(`${m.title}\n${m.content}`)) continue
+            if (searching && !this.textMatches(m.content)) continue
             rows.push({ kind: 'memo', item: m })
         }
         return rows.sort((a, b) => b.item.deleted_at - a.item.deleted_at)
@@ -473,7 +616,7 @@ class PartyNote {
                     <div class="item-row trashed" data-trash-kind="${r.kind}" data-trash-id="${r.item.id}" tabindex="0" role="button">
                         <i class="item-icon ${r.kind === 'book' ? ICONS.book : ICONS.memo}"></i>
                         <div class="item-body">
-                            <div class="item-title">${esc(r.item.title)}${r.item.hidden ? ` <i class="private-mark fas fa-eye-slash" aria-label="비공개"></i>` : ''}</div>
+                            <div class="item-title clip">${esc(r.kind === 'book' ? r.item.title : memoLabel(r.item))}${r.item.hidden ? ` <i class="private-mark fas fa-eye-slash" aria-label="비공개"></i>` : ''}</div>
                             <div class="item-sub clip">${sub} · ${daysAgoLabel(r.item.deleted_at)} 지움</div>
                         </div>
                         <i class="item-arrow fas fa-ellipsis-h"></i>
@@ -493,7 +636,7 @@ class PartyNote {
     async openTrashItem(kind, id) {
         const item = (kind === 'book' ? this.trash_books : this.trash_memos).find(x => x.id === id)
         if (!item) return
-        const choice = await ui.choose(`'${item.title}' ${kind === 'book' ? '책' : '메모'}을 어떻게 할까요?\n영구 삭제하면 되돌릴 수 없어요.`, [
+        const choice = await ui.choose(`'${kind === 'book' ? item.title : memoLabel(item, 20)}' ${kind === 'book' ? '책' : '메모'}을 어떻게 할까요?\n영구 삭제하면 되돌릴 수 없어요.`, [
             { value: 'restore', label: '되살리기', style: 'primary' },
             { value: 'delete', label: '영구 삭제', style: 'danger-ghost' },
         ], { stack: true })
@@ -578,7 +721,7 @@ class PartyNote {
                 ${this.coverHtml(b, 'item-icon book-cover')}
                 <div class="item-body">
                     <div class="item-title">${esc(b.title)}${b.locked ? ` <i class="book-lock fas fa-lock" aria-label="잠근 책"></i>` : ''}</div>
-                    <div class="item-sub clip">${closed ? `<i class="${BOOK_STATUS[status].icon}"></i> ${closed} · ` : ''}${pages.length ? `${pages.length}쪽 · ${esc(pages.map(p => p.title).join(', '))}` : '아직 빈 책이에요'}</div>
+                    <div class="item-sub clip">${closed ? `<i class="${BOOK_STATUS[status].icon}"></i> ${closed} · ` : ''}${pages.length ? `${pages.length}쪽 · ${esc(this.chapters(b).length ? this.chapters(b).map(c => c.title).join(', ') : memoLabel(pages[0]))}` : '아직 빈 책이에요'}</div>
                 </div>
                 ${this.favoriteMarkHtml(b)}
                 <i class="item-arrow fas fa-chevron-right"></i>
@@ -587,13 +730,13 @@ class PartyNote {
 
     memoRowHtml(m) {
         const book = m.book_id ? this.book(m.book_id) : null
-        const preview = m.content.trim().split('\n')[0]
+        // 본문의 첫 줄만 (넘치면 …). 책 속의 쪽(검색·즐겨찾기)이면 아래에 책 이름
         return `
             <div class="item-row memo" data-memo-id="${m.id}" tabindex="0" role="button">
                 <i class="item-icon ${ICONS.memo}"></i>
                 <div class="item-body">
-                    <div class="item-title">${esc(m.title)}</div>
-                    ${book ? `<div class="item-sub clip"><i class="${ICONS.book}"></i> ${esc(book.title)}</div>` : preview ? `<div class="item-sub clip">${esc(preview)}</div>` : ''}
+                    <div class="item-title clip">${esc(memoLabel(m))}</div>
+                    ${book ? `<div class="item-sub clip"><i class="${ICONS.book}"></i> ${esc(book.title)}</div>` : ''}
                 </div>
                 ${this.favoriteMarkHtml(m)}
                 <i class="item-arrow fas fa-chevron-right"></i>
@@ -750,8 +893,24 @@ class PartyNote {
         el.dataset.status = status
         // 보여 주는 순서만 뒤집음 (쪽 번호와 앞·뒤쪽으로 넘겨 읽는 순서는 그대로). 모든 책에 같은 설정
         const desc = note_config.get('page_sort') === 'desc'
-        const shown = pages.map((p, i) => [p, i])
-        if (desc) shown.reverse()
+        // 장 단위로 묶어 보여 줌. 내림차순이면 장의 순서와 장 안의 쪽 순서를 같이 뒤집음 (구분선은 늘 그 장의 맨 위)
+        const sections = this.sections(b, pages)
+        if (desc) sections.reverse().forEach(sec => sec.pages.reverse())
+        const pageRow = ([p, i]) => `
+                        <li class="page ${p.id === b.bookmark_id ? 'marked' : ''}">
+                            <button type="button" class="page-item" data-page-open="${p.id}">
+                                <span class="page-no">${i + 1}</span>
+                                <span class="page-title">${esc(memoLabel(p))}</span>
+                                ${p.favorite ? `<i class="item-fav fas fa-star"></i>` : ''}
+                                ${p.id === b.bookmark_id ? `<i class="page-mark fas fa-bookmark" aria-label="마지막으로 읽은 쪽"></i>` : ''}
+                            </button>
+                            <button type="button" class="icon-btn" data-page-more="${p.id}" aria-label="더 보기"><i class="fas fa-ellipsis-h"></i></button>
+                        </li>`
+        const chapterRow = (c) => `
+                        <li class="chapter-row">
+                            <span class="chapter-title">${esc(c.title)}</span>
+                            <button type="button" class="icon-btn" data-chapter-more="${c.uid}" aria-label="장 더 보기"><i class="fas fa-ellipsis-h"></i></button>
+                        </li>`
         el.innerHTML = `
             ${status !== 'active' ? `
                 <div class="status-banner">
@@ -769,26 +928,17 @@ class PartyNote {
                 <button type="button" class="btn primary" data-action="page-new"><i class="fas fa-plus"></i> 새 쪽 쓰기</button>
                 ${loose ? `<button type="button" class="btn ghost" data-action="page-pick"><i class="${ICONS.memo}"></i> 낱장 넣기</button>` : ''}
                 ${mark >= 0 ? `<button type="button" class="btn ghost" data-page-open="${pages[mark].id}"><i class="fas fa-bookmark"></i> 이어 읽기 (${mark + 1}쪽)</button>` : ''}
+                <button type="button" class="btn ghost" data-action="chapter-add"><i class="fas fa-heading"></i> 장 추가</button>
                 ${pages.length > 1 ? `
                     <button type="button" class="text-btn page-sort" data-action="page-sort" aria-label="쪽 정렬 바꾸기">
                         <i class="fas ${desc ? 'fa-sort-numeric-down-alt' : 'fa-sort-numeric-down'}"></i> ${desc ? '내림차순' : '오름차순'}
                     </button>` : ''}
             </div>
-            ${pages.length ? `
+            ${sections.length ? `
                 <ol class="page-list">
-                    ${shown.map(([p, i]) => `
-                        <li class="page ${p.id === b.bookmark_id ? 'marked' : ''}">
-                            <button type="button" class="page-item" data-page-open="${p.id}">
-                                <span class="page-no">${i + 1}</span>
-                                <span class="page-text">
-                                    <span class="page-title">${esc(p.title)}${p.favorite ? ` <i class="item-fav fas fa-star"></i>` : ''}</span>
-                                    ${p.content.trim() ? `<span class="page-preview">${esc(p.content.trim().split('\n')[0])}</span>` : ''}
-                                </span>
-                                ${p.id === b.bookmark_id ? `<i class="page-mark fas fa-bookmark" aria-label="마지막으로 읽은 쪽"></i>` : ''}
-                            </button>
-                            <button type="button" class="icon-btn" data-page-more="${p.id}" aria-label="더 보기"><i class="fas fa-ellipsis-h"></i></button>
-                        </li>`).join('')}
-                </ol>` : `<p class="book-empty">첫 쪽을 써 보세요. 낱장으로 써 둔 메모를 넣을 수도 있어요.</p>`}`
+                    ${sections.map(sec => `${sec.chapter ? chapterRow(sec.chapter) : ''}${sec.pages.map(pageRow).join('')}`).join('')}
+                </ol>` : ''}
+            ${pages.length ? '' : `<p class="book-empty">첫 쪽을 써 보세요. 낱장으로 써 둔 메모를 넣을 수도 있어요.</p>`}`
     }
 
     // 책 정보: 언제 만들었고 얼마나 써 왔는지. 아래에 내보내기와 완결·연재 중지·재개.
@@ -963,10 +1113,16 @@ class PartyNote {
     exportBookDocument(b, pages, name, kind) {
         const status = statusOf(b)
         const info = [`${fullDate(b.created_at)} ~ ${status === 'active' ? '쓰는 중' : `${fullDate(b.status_at)} ${BOOK_STATUS[status].short}`}`, `${pages.length}쪽`]
-        if (kind === 'docx') return downloadText(`${name}.docx`, makeBookDocx(b, info, pages))
-        if (kind === 'epub') return downloadText(`${name}.epub`, makeBookEpub(b, info, pages, note_config.get('epub_author')))
+        // 장 단위로: [{ title ('' = 첫 장 앞), texts: [쪽 본문…] }]
+        const sections = this.sections(b, pages).map(sec => ({ title: sec.chapter?.title || '', texts: sec.pages.map(([p]) => p.content) }))
+        if (kind === 'docx') return downloadText(`${name}.docx`, makeBookDocx(b, info, sections))
+        if (kind === 'epub') return downloadText(`${name}.epub`, makeBookEpub(b, info, sections, note_config.get('epub_author')))
         const line = '─'.repeat(20)
-        const text = [b.title, ...info, '', ...pages.flatMap(p => [line, p.title, line, '', ...p.content.split(/\r\n?|\n/), '', ''])].join('\r\n')
+        const text = [b.title, ...info, '', ...sections.flatMap(sec => [
+            ...(sec.title ? [line, sec.title, line, ''] : []),
+            ...sec.texts.flatMap(t => [...t.split(/\r\n?|\n/), '']),
+            '',
+        ])].join('\r\n')
         downloadText(`${name}.txt`, '\ufeff' + text, 'text/plain;charset=utf-8') // 윈도 메모장에서도 한글이 안 깨지게 BOM
     }
 
@@ -1047,7 +1203,7 @@ class PartyNote {
         const pages = this.pages(b.id)
         const index = pages.findIndex(p => p.id === m.id)
         const choice = await ui.openSheet({
-            title: m.title,
+            title: memoLabel(m, 30),
             content: `
                 <div class="sheet-options">
                     ${index > 0 ? `<button type="button" class="sheet-option" data-sheet-value="up"><i class="fas fa-arrow-up"></i> 앞쪽으로</button>` : ''}
@@ -1060,16 +1216,18 @@ class PartyNote {
         if (choice === 'up' || choice === 'down') {
             const other = pages[index + (choice === 'up' ? -1 : 1)]
             // 순서를 1부터 다시 매긴 뒤 둘을 맞바꿈 (옛 기록의 순서 값이 겹쳐 있어도 안전)
-            pages.forEach((p, i) => p.order = i + 1)
-            ;[m.order, other.order] = [other.order, m.order]
-            for (const p of pages) await this.saveMemoRecord(p, { touch: false })
+            await this.keepChapterSlots(b, async () => {
+                pages.forEach((p, i) => p.order = i + 1)
+                ;[m.order, other.order] = [other.order, m.order]
+                for (const p of pages) await this.saveMemoRecord(p, { touch: false })
+            })
             await this.saveBookRecord(b)
         } else if (choice === 'jump') {
             if (!(await this.movePageTo(m, pages))) return
         } else if (choice === 'out') {
             await this.takeOutOfBook(m)
         } else if (choice === 'delete') {
-            if (!(await ui.confirm(`'${m.title}' 메모를 휴지통으로 옮길까요?\n${TRASH_DAYS}일 동안 휴지통에서 되살릴 수 있어요.`, { ok: '삭제', danger: true }))) return
+            if (!(await ui.confirm(`'${memoLabel(m, 20)}' 쪽을 휴지통으로 옮길까요?\n${TRASH_DAYS}일 동안 휴지통에서 되살릴 수 있어요.`, { ok: '삭제', danger: true }))) return
             await this.removeMemo(m)
             ui.toast('휴지통으로 옮겼어요')
         } else {
@@ -1082,7 +1240,7 @@ class PartyNote {
     // 쪽 번호를 적고 그 쪽의 앞/뒤로 옮기기 (번호는 옮기기 전 기준). 옮겼으면 true
     async movePageTo(m, pages) {
         const from = pages.indexOf(m)
-        const pick = await ui.promptNumber(`'${m.title}' (지금 ${from + 1}쪽)\n몇 쪽의 앞이나 뒤로 옮길까요?`, {
+        const pick = await ui.promptNumber(`'${memoLabel(m, 20)}' (지금 ${from + 1}쪽)\n몇 쪽의 앞이나 뒤로 옮길까요?`, {
             max: pages.length,
             placeholder: `쪽 번호 (1~${pages.length})`,
             buttons: [
@@ -1103,9 +1261,12 @@ class PartyNote {
             return false
         }
         rest.splice(at, 0, m)
-        rest.forEach((p, i) => p.order = i + 1)
-        for (const p of rest) await this.saveMemoRecord(p, { touch: false })
-        await this.saveBookRecord(this.book(m.book_id))
+        const b = this.book(m.book_id)
+        await this.keepChapterSlots(b, async () => {
+            rest.forEach((p, i) => p.order = i + 1)
+            for (const p of rest) await this.saveMemoRecord(p, { touch: false })
+        })
+        await this.saveBookRecord(b)
         ui.toast(`${at + 1}쪽으로 옮겼어요`)
         return true
     }
@@ -1119,7 +1280,7 @@ class PartyNote {
             title: '넣을 메모 고르기',
             content: `
                 <div class="sheet-options">
-                    ${loose.map(m => `<button type="button" class="sheet-option" data-sheet-value="${m.id}"><i class="${ICONS.memo}"></i> <span class="clip">${esc(m.title)}</span></button>`).join('')}
+                    ${loose.map(m => `<button type="button" class="sheet-option" data-sheet-value="${m.id}"><i class="${ICONS.memo}"></i> <span class="clip">${esc(memoLabel(m))}</span></button>`).join('')}
                 </div>`,
         })
         const m = this.memo(Number(choice))
@@ -1135,14 +1296,18 @@ class PartyNote {
         memo.book_id = book.id
         memo.hidden = book.hidden ? 1 : 0
         await this.saveMemoRecord(memo, { touch: false })
+        await this.claimEndChapters(book, memo)
         await this.saveBookRecord(book)
     }
 
     async takeOutOfBook(memo) {
         const book = this.book(memo.book_id)
-        memo.book_id = 0
-        memo.order = 0
-        await this.saveMemoRecord(memo, { touch: false })
+        const out = async () => {
+            memo.book_id = 0
+            memo.order = 0
+            await this.saveMemoRecord(memo, { touch: false })
+        }
+        await (book ? this.keepChapterSlots(book, out) : out())
         if (book) {
             if (book.bookmark_id === memo.id) book.bookmark_id = 0
             await this.saveBookRecord(book)
@@ -1151,7 +1316,7 @@ class PartyNote {
 
     async removeMemo(memo) {
         const book = memo.book_id ? this.book(memo.book_id) : null
-        await this.trashMemo(memo)
+        await (book ? this.keepChapterSlots(book, () => this.trashMemo(memo)) : this.trashMemo(memo))
         if (book) {
             if (book.bookmark_id === memo.id) book.bookmark_id = 0
             await this.saveBookRecord(book)
@@ -1170,8 +1335,9 @@ class PartyNote {
         this.open_book_id = b ? b.id : null
         const pages = b ? this.pages(b.id) : []
         const index = pages.findIndex(p => p.id === m.id)
+        const chapter = b ? this.chapterStartingAt(b, m) : null
         ui.openPopup({
-            title: `<i class="${ICONS.memo}"></i> ${esc(m.title)}`,
+            title: `<i class="${ICONS.memo}"></i> ${esc(memoLabel(m))}`,
             actions: `
                 ${this.favoriteBtnHtml(m)}
                 <button type="button" class="icon-btn" data-action="memo-more" aria-label="더 보기"><i class="fas fa-ellipsis-h"></i></button>`,
@@ -1183,8 +1349,8 @@ class PartyNote {
                             <i class="fas fa-chevron-left"></i> <i class="${ICONS.book}"></i> <span class="clip">${esc(b.title)}</span>
                             <span class="crumb-no">${index + 1} / ${pages.length}쪽</span>
                         </button>` : ''}
+                    ${chapter ? `<h2 class="chapter-head">${esc(chapter.title)}</h2>` : ''}
                     <div class="memo-head">
-                        <h2 class="memo-title">${esc(m.title)}</h2>
                         ${m.content.trim() ? `<button type="button" class="text-btn memo-copy" data-action="memo-copy"><i class="far fa-copy"></i> 본문 복사</button>` : ''}
                     </div>
                     ${m.content.trim() ? `<div class="memo-content">${linkify(m.content)}</div>` : `<p class="book-empty">내용이 없어요</p>`}
@@ -1216,8 +1382,7 @@ class PartyNote {
         this.reader_y = y
         const near_top = y < 24
         const near_bottom = mode === 'reader' && el.scrollHeight - el.clientHeight - y < 24
-        const on_title = mode === 'editor' && document.activeElement?.matches('.memo-title-input') // 제목을 고치는 중에는 숨기지 않음
-        if (near_top || near_bottom || on_title || delta < -6) popup.classList.remove('immersive')
+        if (near_top || near_bottom || delta < -6) popup.classList.remove('immersive')
         else if (delta > 6) popup.classList.add('immersive')
     }
 
@@ -1249,7 +1414,7 @@ class PartyNote {
         const m = this.memo(this.open_memo_id)
         if (!m) return
         const choice = await ui.openSheet({
-            title: m.title,
+            title: memoLabel(m, 30),
             content: `
                 <div class="sheet-options">
                     <button type="button" class="sheet-option" data-sheet-value="edit"><i class="fas fa-pen"></i> 고치기</button>
@@ -1274,7 +1439,7 @@ class PartyNote {
             return this.openMemo(m.id)
         }
         if (choice === 'delete') {
-            if (!(await ui.confirm(`'${m.title}' 메모를 휴지통으로 옮길까요?\n${TRASH_DAYS}일 동안 휴지통에서 되살릴 수 있어요.`, { ok: '삭제', danger: true }))) return
+            if (!(await ui.confirm(`'${memoLabel(m, 20)}' 메모를 휴지통으로 옮길까요?\n${TRASH_DAYS}일 동안 휴지통에서 되살릴 수 있어요.`, { ok: '삭제', danger: true }))) return
             const book_id = m.book_id
             await this.removeMemo(m)
             this.open_memo_id = null
@@ -1313,7 +1478,7 @@ class PartyNote {
             from.bookmark_id = 0
             await this.saveBookRecord(from)
         }
-        await this.putIntoBook(m, book)
+        await (from ? this.keepChapterSlots(from, () => this.putIntoBook(m, book)) : this.putIntoBook(m, book))
         this.render()
         ui.toast(`'${book.title}'에 넣었어요`)
         this.openMemo(m.id)
@@ -1327,7 +1492,7 @@ class PartyNote {
         this.open_memo_id = id
         this.edit_book_id = m ? m.book_id : book_id
         const b = this.edit_book_id ? this.book(this.edit_book_id) : null
-        this.memo_base = { title: m?.title || '', content: m?.content || '' }
+        this.memo_base = { content: m?.content || '' }
         this.draft_mine = false
         this.draft_kept = null
         this.draft_saved = null
@@ -1347,16 +1512,15 @@ class PartyNote {
                             <div class="memo-count" aria-live="off"></div>
                             <span class="draft-load-zone"></span>
                         </div>
-                        <input type="text" class="memo-title-input" placeholder="제목 (비워 두면 '${esc(this.defaultTitle(m, this.edit_book_id))}')" maxlength="100" autocomplete="off" value="${esc(this.memo_base.title)}">
                     </div>
-                    <textarea class="memo-content-input" rows="10" placeholder="짧은 이야기를 적어 보세요">${esc(this.memo_base.content)}</textarea>
+                    <textarea class="memo-content-input" rows="10" placeholder="${b ? '이 쪽의 이야기를 적어 보세요' : '짧은 이야기를 적어 보세요. 첫 줄이 목록에 보여요'}">${esc(this.memo_base.content)}</textarea>
                 </form>`,
             // 쓰던 내용이 있으면 닫기 전에 묻습니다.
             before_close: () => this.confirmDiscard(),
         })
         this.reader_y = 0
         autoGrow($('.memo-content-input'))
-        $(m ? '.memo-content-input' : '.memo-title-input').focus()
+        $('.memo-content-input').focus()
         this.renderDraftLink()
         this.renderMemoCount()
         // 쓰는 동안 8초에 한 번 임시 저장 (편집 화면을 떠나면 writeDraft가 알아서 멈춤)
@@ -1367,13 +1531,13 @@ class PartyNote {
         this.draft_tick = setInterval(() => this.renderDraftStatus(), 30000)
     }
 
-    // 내용 칸 아래의 글자 수와 대략의 크기. (글자 수는 책 정보의 분량처럼 공백을 뺀 수, 크기는 제목+내용을 저장할 때의 바이트 수)
+    // 글자 수와 대략의 크기. (글자 수는 책 정보의 분량처럼 공백을 뺀 수, 크기는 저장할 때의 바이트 수)
     renderMemoCount() {
-        const el = $('.memo-count'), title = $('.memo-title-input'), content = $('.memo-content-input')
-        if (!el || !title || !content) return
+        const el = $('.memo-count'), content = $('.memo-content-input')
+        if (!el || !content) return
         const chars = content.value.replace(/\s/g, '').length
         const with_space = content.value.length
-        const kb = new TextEncoder().encode(title.value + content.value).length / 1024
+        const kb = new TextEncoder().encode(content.value).length / 1024
         // 대략의 크기: 0.5KB, 15KB, 1.2MB 처럼
         const size = kb < 0.05 ? '0KB' : kb < 10 ? `${kb.toFixed(1)}KB` : kb < 1024 ? `${Math.round(kb)}KB` : `${(kb / 1024).toFixed(1)}MB`
         el.textContent = `${chars.toLocaleString('ko-KR')}자 (공백 포함 ${with_space.toLocaleString('ko-KR')}자) · 약 ${size}`
@@ -1401,7 +1565,8 @@ class PartyNote {
     readDraft() {
         try {
             const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null')
-            return d && typeof d.title === 'string' && typeof d.content === 'string' ? d : null
+            if (!d || typeof d.content !== 'string') return null
+            return { ...d, content: mergeTitle(d.title, d.content) } // 예전 버전에서 제목까지 적어 둔 임시 저장은 본문 첫머리로
         } catch (e) {
             return null
         }
@@ -1427,15 +1592,14 @@ class PartyNote {
     // 임시 저장소의 글을 지금 편집 화면에 불러오기
     async loadDraft() {
         const d = this.draft_kept || this.readDraft()
-        const title = $('.memo-title-input'), content = $('.memo-content-input')
-        if (!d || !title || !content) return this.renderDraftLink()
+        const content = $('.memo-content-input')
+        if (!d || !content) return this.renderDraftLink()
         if (this.memoChanged() && !(await ui.confirm('지금 쓰고 있는 내용이 임시 저장한 글로 바뀌어요.\n불러올까요?', { ok: '불러오기' }))) return
         this.fillFromDraft(d)
     }
 
     fillFromDraft(d) {
         const content = $('.memo-content-input')
-        $('.memo-title-input').value = d.title
         content.value = d.content
         autoGrow(content)
         content.focus()
@@ -1449,15 +1613,15 @@ class PartyNote {
 
     // 지금 편집 화면의 내용을 임시 저장. 편집 중이 아니면 아무것도 안 함.
     writeDraft() {
-        const title = $('.memo-title-input'), content = $('.memo-content-input')
-        if (!this.memo_base || !title || !content) return clearInterval(this.draft_timer) // 편집 화면이 아님: 타이머 정지
+        const content = $('.memo-content-input')
+        if (!this.memo_base || !content) return clearInterval(this.draft_timer) // 편집 화면이 아님: 타이머 정지
         if (!this.memoChanged()) {
             if (this.draft_mine) this.clearDraft() // 원래대로 되돌렸으면 남길 것이 없음
             this.draft_saved = null
             return this.renderDraftStatus('')
         }
         // 마지막 임시 저장 뒤로 바뀐 게 없으면 다시 쓰지 않음 → 표시된 시각이 마지막으로 바뀐 내용을 저장한 때를 가리킴
-        if (this.draft_saved && this.draft_saved.title === title.value && this.draft_saved.content === content.value) return
+        if (this.draft_saved && this.draft_saved.content === content.value) return
         const m = this.open_memo_id ? this.memo(this.open_memo_id) : null
         // 임시 저장소는 하나뿐이라 예전에 쓰다 만 글은 여기서 덮어써짐. 이 화면에 있는 동안은 불러올 수 있게 들고 있음
         if (!this.draft_mine && !this.draft_kept) this.draft_kept = this.readDraft()
@@ -1465,12 +1629,11 @@ class PartyNote {
             localStorage.setItem(DRAFT_KEY, JSON.stringify({
                 memo_uid: m ? m.uid : '',               // 고치던 메모 ('' = 새 글)
                 book_uid: this.book(this.edit_book_id)?.uid || '', // 새 쪽을 쓰던 책
-                title: title.value,
                 content: content.value,
                 saved_at: Date.now(),
             }))
             this.draft_mine = true
-            this.draft_saved = { at: Date.now(), title: title.value, content: content.value }
+            this.draft_saved = { at: Date.now(), content: content.value }
             this.renderDraftLink()
             this.renderDraftStatus()
         } catch (e) {
@@ -1480,28 +1643,25 @@ class PartyNote {
     }
 
     memoChanged() {
-        const title = $('.memo-title-input'), content = $('.memo-content-input')
-        if (!this.memo_base || !title || !content) return false
-        return title.value !== this.memo_base.title || content.value !== this.memo_base.content
+        const content = $('.memo-content-input')
+        if (!this.memo_base || !content) return false
+        return content.value !== this.memo_base.content
     }
 
     async saveMemo() {
         const content = $('.memo-content-input').value
         let m = this.open_memo_id ? this.memo(this.open_memo_id) : null
-        let title = $('.memo-title-input').value.trim()
-        if (!title && !content.trim()) {
-            ui.toast('제목이나 내용을 적어 주세요')
-            return $('.memo-title-input').focus()
+        if (!content.trim()) {
+            ui.toast('내용을 적어 주세요')
+            return $('.memo-content-input').focus()
         }
-        // 제목을 비우면 자동으로 붙임: 낱장은 '무제1', 책의 쪽은 '1편'
-        if (!title) title = this.defaultTitle(m, this.edit_book_id)
         if (m) {
-            m.title = title
             m.content = content
             await this.saveMemoRecord(m)
         } else {
             const b = this.edit_book_id ? this.book(this.edit_book_id) : null
-            m = await this.insertMemo({ title, content, book_id: b ? b.id : 0, order: b ? this.nextOrder(b.id) : 0 })
+            m = await this.insertMemo({ content, book_id: b ? b.id : 0, order: b ? this.nextOrder(b.id) : 0 })
+            if (b) await this.claimEndChapters(b, m)
         }
         const book = m.book_id ? this.book(m.book_id) : null
         if (book) await this.saveBookRecord(book) // 책도 방금 고친 것으로
@@ -1509,25 +1669,6 @@ class PartyNote {
         this.render()
         ui.toast('저장했어요')
         this.backTo('openMemo', m.id)
-    }
-
-    // 제목을 비웠을 때 붙일 이름.
-    // - 책의 쪽: 그 쪽의 번호로 '3편' (새 쪽이면 맨 뒤 번호)
-    // - 낱장 메모: '무제1', '무제2' … (지금 있는 낱장의 무제 번호 중 가장 큰 것 다음)
-    // (메뉴의 '빈 제목 기본값'이 날짜면 책·낱장 모두 그 글을 처음 쓴 날짜: '2026.10.14 (화)')
-    defaultTitle(memo, book_id) {
-        if (note_config.get('empty_title') === 'date') {
-            const d = new Date(memo ? memo.created_at : Date.now())
-            return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${'일월화수목금토'[d.getDay()]})`
-        }
-        const b = book_id ? this.book(book_id) : null
-        if (b) {
-            const pages = this.pages(b.id)
-            const index = memo ? pages.findIndex(p => p.id === memo.id) : -1
-            return `${index >= 0 ? index + 1 : pages.length + 1}편`
-        }
-        const used = this.memos.filter(x => !x.book_id && x !== memo).map(x => /^무제(\d+)$/.exec(x.title)).filter(Boolean).map(r => Number(r[1]))
-        return `무제${Math.max(0, ...used) + 1}`
     }
 
     // 편집 취소: 고치던 메모면 조회 화면으로, 책에 쓰던 새 쪽이면 책으로, 새 낱장이면 닫기
@@ -1566,14 +1707,21 @@ class PartyNote {
         const text = (v, max) => (typeof v === 'string' ? v : '').slice(0, max)
         const time = (v) => (Number.isFinite(v) && v > 0 ? v : 0)
         const uid = (v) => (typeof v === 'string' && /^[a-z0-9]{6,40}$/.test(v) ? v : '')
-        const title = text(raw.title, 100).trim()
-        if (!title) return null
-        const base = { uid: uid(raw.uid) || newUid(), title, favorite: raw.favorite ? 1 : 0, hidden: raw.hidden ? 1 : 0, created_at: time(raw.created_at), updated_at: time(raw.updated_at) }
+        const base = { uid: uid(raw.uid) || newUid(), favorite: raw.favorite ? 1 : 0, hidden: raw.hidden ? 1 : 0, created_at: time(raw.created_at), updated_at: time(raw.updated_at) }
         if (kind === 'book') {
+            const title = text(raw.title, 100).trim()
+            if (!title) return null
+            // 장: 시작하는 쪽은 uid로 적혀 있어서 기기가 달라도 그대로 이어짐
+            const chapters = (Array.isArray(raw.chapters) ? raw.chapters : [])
+                .map(c => ({ uid: uid(c?.uid) || newUid(), title: text(c?.title, 60).trim(), at: uid(c?.at) }))
+                .filter(c => c.title)
             const status = ['done', 'stopped'].includes(raw.status) ? raw.status : 'active'
-            return { ...idb.newRecord('book'), ...base, cover: isCoverImage(raw.cover) ? raw.cover : '', status, status_at: status === 'active' ? 0 : time(raw.status_at), locked: raw.locked ? 1 : 0, bookmark_uid: uid(raw.bookmark_uid) }
+            return { ...idb.newRecord('book'), ...base, title, chapters, cover: isCoverImage(raw.cover) ? raw.cover : '', status, status_at: status === 'active' ? 0 : time(raw.status_at), locked: raw.locked ? 1 : 0, bookmark_uid: uid(raw.bookmark_uid) }
         }
-        return { ...idb.newRecord('memo'), ...base, content: text(raw.content, 200000), order: Number.isFinite(raw.order) ? raw.order : 0, book_uid: uid(raw.book_uid) }
+        // 예전 버전의 파일이면 제목을 본문 첫머리로
+        const content = mergeTitle(text(raw.title, 100), text(raw.content, 200000))
+        if (!content.trim()) return null
+        return { ...idb.newRecord('memo'), ...base, content, order: Number.isFinite(raw.order) ? raw.order : 0, book_uid: uid(raw.book_uid) }
     }
 
     // 가져오기는 지금 있는 것에 합칩니다. 같은 기록(uid)이면 더 최근에 고친 쪽을 남깁니다.

@@ -127,6 +127,7 @@ class PartyNoteInit {
                     case 'draft-load': return party_note.loadDraft()
                     case 'memo-save': return party_note.saveMemo()
                     case 'memo-cancel': return party_note.cancelMemoEdit()
+                    case 'chapter-add': return party_note.addChapter()
                 }
             }
 
@@ -136,21 +137,14 @@ class PartyNoteInit {
             if (page) return party_note.nav('openMemo', [Number(page.dataset.pageOpen)], party_note.screen?.kind === 'openMemo' ? 'replace' : 'push')
             const more = e.target.closest('[data-page-more]')
             if (more) return party_note.openPageMenu(Number(more.dataset.pageMore))
-        })
-
-        popup.addEventListener('keydown', (e) => {
-            if (e.key !== 'Enter' || e.isComposing) return // 한글 조합 중 Enter는 무시
-            // 메모 제목 칸 Enter → 내용 칸으로 (폼이 제출되지 않게)
-            if (e.target.matches('.memo-title-input')) {
-                e.preventDefault()
-                $('.memo-content-input').focus()
-            }
+            const chapter = e.target.closest('[data-chapter-more]')
+            if (chapter) return party_note.openChapterMenu(chapter.dataset.chapterMore)
         })
 
         // 메모 내용 칸은 쓰는 만큼 늘어나고 지우면 줄어듭니다.
         popup.addEventListener('input', (e) => {
             if (e.target.matches('.memo-content-input')) autoGrow(e.target)
-            if (e.target.matches('.memo-title-input, .memo-content-input')) party_note.renderMemoCount()
+            if (e.target.matches('.memo-content-input')) party_note.renderMemoCount()
         })
         // 임시 저장은 쓰는 동안 8초에 한 번(note.js). 앱이 닫히거나 뒤로 숨겨질 때는 기다리지 않고 바로 저장
         document.addEventListener('visibilitychange', () => {
@@ -171,10 +165,6 @@ class PartyNoteInit {
 
     bindMenu() {
         $('.menu-screen').addEventListener('change', (e) => {
-            if (e.target.name === 'empty_title') {
-                note_config.set('empty_title', e.target.value)
-                ui.toast(e.target.value === 'date' ? '제목을 비우면 날짜가 붙어요' : '제목을 비우면 1편, 무제1처럼 붙어요')
-            }
             if (e.target.name === 'show_private') {
                 party_note.setShowPrivate(e.target.value === 'on')
                 ui.toast(e.target.value === 'on' ? '필터에 비공개 칸이 생겼어요' : '비공개 글을 숨겼어요')

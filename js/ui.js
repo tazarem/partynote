@@ -331,7 +331,7 @@ class UIHandler {
     }
 
     // 한 줄 입력받기 (책 제목 등). 취소·바깥 누르기·Esc는 null, 빈 값은 확인 불가.
-    // 숫자 하나를 적고 버튼 여러 개 중 하나로 정하는 창. 버튼 글자는 적은 숫자에 따라 바뀜 (label(n) 함수)
+    // 숫자 하나를 적고 버튼 여러 개 중 하나로 정하는 창. 버튼 글자는 적은 숫자에 따라 바뀜 (label(n) 함수, always면 숫자 없이도 누를 수 있음)
     // 결과: { n, value } 또는 null(취소)
     promptNumber(message, { min = 1, max = 1, placeholder = '', cancel = '취소', buttons = [] } = {}) {
         return new Promise((res) => {
@@ -358,7 +358,7 @@ class UIHandler {
                 buttons.forEach(b => {
                     const btn = overlay.querySelector(`[data-v="${b.value}"]`)
                     btn.textContent = b.label(n)
-                    btn.disabled = n === null
+                    btn.disabled = n === null && !b.always // always: 숫자 없이도 누를 수 있는 버튼 (예: 맨 끝에)
                 })
             }
             const onKey = (e) => { if (e.key === 'Escape') close(null) }
@@ -371,7 +371,8 @@ class UIHandler {
             document.addEventListener('keydown', onKey)
             overlay.addEventListener('click', (e) => {
                 const btn = e.target.closest('button')
-                if (btn) return close(btn.dataset.v && number() !== null ? { n: number(), value: btn.dataset.v } : null)
+                const always = buttons.find(b => b.value === btn?.dataset.v)?.always
+                if (btn) return close(btn.dataset.v && (always || number() !== null) ? { n: number(), value: btn.dataset.v } : null)
                 if (e.target === overlay) close(null)
             })
             document.body.appendChild(overlay)

@@ -1,5 +1,5 @@
 // 책을 전자책(EPUB 3)으로 만듭니다. docx.js의 makeZip·xmlEsc를 같이 씁니다.
-// 표지 사진(있으면) → 제목 쪽 → 쪽마다 한 장(챕터). 쪽 제목으로 목차가 만들어집니다.
+// 표지 사진(있으면) → 제목 쪽 → 장마다 한 장(챕터). 장 제목으로 목차가 만들어집니다.
 
 // dataURL(base64) → 바이트
 function dataUrlBytes(data_url) {
@@ -18,13 +18,15 @@ function epubPage(title, body) {
 </html>`
 }
 
-// book: { uid, title, cover }, info: 제목 쪽의 작은 줄들, pages: [{ title, content }], author: 지은이
-function makeBookEpub(book, info, pages, author) {
+// book: { uid, title, cover }, info: 제목 쪽의 작은 줄들, sections: [{ title (장 제목, '' = 첫 장 앞), texts: [쪽 본문…] }], author: 지은이
+function makeBookEpub(book, info, sections, author) {
     const has_cover = isCoverImage(book.cover)
     const cover_type = has_cover ? book.cover.slice(5, book.cover.indexOf(';')) : ''
     const cover_ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[cover_type]
     const modified = new Date().toISOString().replace(/\.\d+Z$/, 'Z')
-    const chapters = pages.map((p, i) => ({ id: `p${String(i + 1).padStart(4, '0')}`, title: p.title, content: p.content }))
+    // 장 제목이 없는 첫 부분은 목차에 첫 쪽의 첫 줄로
+    const firstLine = (t) => (t || '').split(/\r\n?|\n/).map(x => x.trim()).find(Boolean) || book.title
+    const chapters = sections.map((sec, i) => ({ id: `c${String(i + 1).padStart(4, '0')}`, title: sec.title, label: sec.title || firstLine(sec.texts[0]).slice(0, 30), texts: sec.texts }))
     const files = [
         { name: 'mimetype', text: 'application/epub+zip' }, // 맨 앞, 압축 없이 (EPUB 규칙)
         {
@@ -61,7 +63,7 @@ ${chapters.map(c => `<itemref idref="${c.id}"/>`).join('\n')}
         },
         {
             name: 'OEBPS/nav.xhtml',
-            text: epubPage('차례', `<nav epub:type="toc" id="toc"><h1>차례</h1><ol>${chapters.map(c => `<li><a href="${c.id}.xhtml">${xmlEsc(c.title)}</a></li>`).join('')}</ol></nav>`),
+            text: epubPage('차례', `<nav epub:type="toc" id="toc"><h1>차례</h1><ol>${chapters.map(c => `<li><a href="${c.id}.xhtml">${xmlEsc(c.label)}</a></li>`).join('')}</ol></nav>`),
         },
         {
             name: 'OEBPS/style.css',
@@ -83,7 +85,8 @@ p.blank { height: 1.8em; }
         },
         ...chapters.map(c => ({
             name: `OEBPS/${c.id}.xhtml`,
-            text: epubPage(c.title, `<section epub:type="chapter"><h2>${xmlEsc(c.title)}</h2>${c.content.split(/\r\n?|\n/).map(line => line.trim() ? `<p>${xmlEsc(line)}</p>` : '<p class="blank"></p>').join('')}</section>`),
+            // 쪽과 쪽 사이는 빈 줄 하나
+            text: epubPage(c.label, `<section epub:type="chapter">${c.title ? `<h2>${xmlEsc(c.title)}</h2>` : ''}${c.texts.map(t => t.split(/\r\n?|\n/).map(line => line.trim() ? `<p>${xmlEsc(line)}</p>` : '<p class="blank"></p>').join('')).join('<p class="blank"></p>')}</section>`),
         })),
     ]
     if (has_cover) {

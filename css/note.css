@@ -582,6 +582,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 }
 .item-body { flex: 1; min-width: 0; padding: .85rem 0; }
 .item-title { font-weight: bold; overflow-wrap: anywhere; }
+.item-title.clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* 메모: 본문 첫 줄만, 넘치면 … */
 .item-sub { font-size: .82rem; color: var(--sub); }
 .item-sub.clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-arrow { flex-shrink: 0; font-size: .75rem; opacity: .35; }
@@ -695,9 +696,15 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
     align-items: center;
     justify-content: center;
 }
-.page-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.page-title { font-weight: bold; overflow-wrap: anywhere; }
-.page-preview { font-size: .82rem; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.page-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* 본문 첫 줄 */
+
+/* 장 구분선: ── 2장. 가을 ──── ⋯ */
+.chapter-row { display: flex; align-items: center; gap: .6rem; padding: 1rem 0 .3rem .25rem; }
+.chapter-row::after { content: ''; flex: 1; order: 1; height: 1px; background: var(--text); opacity: .35; }
+.chapter-title { flex-shrink: 1; min-width: 0; font-weight: bold; font-size: .92rem; color: var(--text); overflow-wrap: anywhere; }
+.chapter-row .icon-btn { order: 2; opacity: .5; font-size: .85rem; }
+/* 읽기 화면: 장의 첫 쪽 본문 위에 장 제목 */
+.chapter-head { margin: .25rem 0 1rem; font-size: 1.15rem; line-height: 1.4; overflow-wrap: anywhere; }
 .page-mark { flex-shrink: 0; color: var(--accent); }
 .page.marked .page-no { background: var(--accent); color: var(--accent-text); }
 .page .icon-btn { opacity: .5; font-size: .85rem; }
@@ -853,7 +860,8 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .memo-count { margin-top: -.25rem; font-family: system-ui, sans-serif; font-size: .74rem; color: var(--sub); text-align: right; }
 
 /* 메모 조회: 제목 오른쪽의 '본문 복사' */
-.memo-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.memo-head { display: flex; align-items: flex-start; justify-content: flex-end; gap: .75rem; margin-bottom: .75rem; }
+.memo-head:empty { display: none; }
 .memo-head .memo-title { margin: 0; min-width: 0; }
 .memo-copy { flex-shrink: 0; white-space: nowrap; margin-top: .3rem; padding: .1rem 0; text-decoration: none; }
 .memo-copy i { margin-right: .1rem; }

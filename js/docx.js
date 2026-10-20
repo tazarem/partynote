@@ -84,14 +84,16 @@ function docxPara(text, style, new_page = false) {
     return `<w:p>${ppr}${brk}${run}</w:p>`
 }
 
-// book: { title }, info: 제목 아래 작은 줄들, pages: [{ title, content }]
-function makeBookDocx(book, info, pages) {
+// book: { title }, info: 제목 아래 작은 줄들, sections: [{ title (장 제목, '' = 첫 장 앞), texts: [쪽 본문…] }]
+function makeBookDocx(book, info, sections) {
     const body = [
         docxPara(book.title, 'Title'),
         ...info.map(line => docxPara(line, 'Subtitle')),
-        ...pages.flatMap(p => [
-            docxPara(p.title, 'Heading1', true), // 쪽 제목마다 새 페이지에서 시작
-            ...p.content.replace(/\r\n?/g, '\n').split('\n').map(line => docxPara(line)),
+        ...sections.flatMap(sec => [
+            // 장마다 새 페이지에서 시작 (장 제목이 없는 첫 부분도 제목 쪽 다음 페이지부터)
+            sec.title ? docxPara(sec.title, 'Heading1', true) : docxPara('', null, true),
+            // 쪽과 쪽 사이는 빈 줄 하나
+            ...sec.texts.flatMap((t, i) => [...(i ? [docxPara('')] : []), ...t.split(/\r\n?|\n/).map(line => docxPara(line))]),
         ]),
     ].join('')
     const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
