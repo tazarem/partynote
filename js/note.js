@@ -756,11 +756,10 @@ class PartyNote {
                         <b><i class="fas fa-file-export"></i> 책 내보내기</b>
                         <span>선물용 파일이나 워드·텍스트 문서로 만들어요</span>
                     </button>
-                    ${this.showPrivate() ? `
-                        <button type="button" class="status-btn" data-sheet-value="${b.hidden ? 'public' : 'private'}">
-                            <b><i class="fas ${b.hidden ? 'fa-eye' : 'fa-eye-slash'}"></i> ${b.hidden ? '비공개 풀기' : '비공개로 하기'}</b>
-                            <span>${b.hidden ? '다른 칸에도 다시 보여요' : '비공개 칸에만 보이고, 설정에서 끄면 어디에도 안 보여요'}</span>
-                        </button>` : ''}
+                    <button type="button" class="status-btn" data-sheet-value="${b.hidden ? 'public' : 'private'}">
+                        <b><i class="fas ${b.hidden ? 'fa-eye' : 'fa-eye-slash'}"></i> ${b.hidden ? '비공개 풀기' : '비공개로 하기'}</b>
+                        <span>${b.hidden ? '다른 칸에도 다시 보여요' : '비공개 칸에만 보이고, 설정에서 비공개 칸을 숨기면 어디에도 안 보여요'}</span>
+                    </button>
                     <button type="button" class="status-btn" data-sheet-value="${b.locked ? 'unlock' : 'lock'}">
                         <b><i class="fas ${b.locked ? 'fa-lock-open' : 'fa-lock'}"></i> ${b.locked ? '잠금 풀기' : '책 잠그기'}</b>
                         <span>${b.locked ? '… 메뉴에 삭제가 다시 보여요' : '실수로 지우지 않게 … 메뉴에서 삭제를 숨겨요'}</span>
@@ -797,7 +796,15 @@ class PartyNote {
             await this.saveMemoRecord(p, { touch: false })
         }
         this.render()
-        ui.toast(hidden ? '비공개로 했어요 · 비공개 칸에서 볼 수 있어요' : '비공개를 풀었어요')
+        this.toastHidden(hidden)
+    }
+
+    // 비공개로 했을 때: 비공개 칸을 숨겨 둔 상태면 목록에서 사라지니 팝업도 닫음
+    toastHidden(hidden) {
+        if (!hidden) return ui.toast('비공개를 풀었어요')
+        if (this.showPrivate()) return ui.toast('비공개로 했어요 · 비공개 칸에서 볼 수 있어요')
+        ui.closePopup()
+        ui.toast('비공개로 했어요 · 설정에서 다시 볼 수 있어요')
     }
 
     // 책 잠금: 잠그면 … 메뉴의 삭제가 숨겨짐 (글을 쓰고 고치는 것은 그대로)
@@ -1128,7 +1135,7 @@ class PartyNote {
                     <button type="button" class="sheet-option" data-sheet-value="edit"><i class="fas fa-pen"></i> 고치기</button>
                     <button type="button" class="sheet-option" data-sheet-value="move"><i class="${ICONS.book}"></i> ${m.book_id ? '다른 책으로 옮기기' : '책에 넣기'}</button>
                     ${m.book_id ? `<button type="button" class="sheet-option" data-sheet-value="out"><i class="fas fa-sign-out-alt"></i> 책에서 빼기 (낱장으로)</button>` : ''}
-                    ${!m.book_id && this.showPrivate() ? `<button type="button" class="sheet-option" data-sheet-value="hide"><i class="fas ${m.hidden ? 'fa-eye' : 'fa-eye-slash'}"></i> ${m.hidden ? '비공개 풀기' : '비공개로 하기'}</button>` : ''}
+                    ${!m.book_id ? `<button type="button" class="sheet-option" data-sheet-value="hide"><i class="fas ${m.hidden ? 'fa-eye' : 'fa-eye-slash'}"></i> ${m.hidden ? '비공개 풀기' : '비공개로 하기'}</button>` : ''}
                     <button type="button" class="sheet-option danger" data-sheet-value="delete"><i class="far fa-trash-alt"></i> 삭제</button>
                 </div>`,
         })
@@ -1137,7 +1144,7 @@ class PartyNote {
             m.hidden = m.hidden ? 0 : 1
             await this.saveMemoRecord(m, { touch: false })
             this.render()
-            return ui.toast(m.hidden ? '비공개로 했어요 · 비공개 칸에서 볼 수 있어요' : '비공개를 풀었어요')
+            return this.toastHidden(m.hidden)
         }
         if (choice === 'move') return this.moveMemoToBook(m)
         if (choice === 'out') {
