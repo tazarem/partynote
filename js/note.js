@@ -573,7 +573,7 @@ class PartyNote {
         const status = statusOf(b)
         const closed = BOOK_STATUS[status].short
         return `
-            <div class="item-row book${isCoverImage(b.cover) ? ' cover-row' : ''}" data-book-id="${b.id}" data-status="${status}" tabindex="0" role="button">
+            <div class="item-row book" data-book-id="${b.id}" data-status="${status}" tabindex="0" role="button">
                 ${this.coverHtml(b, 'item-icon book-cover')}
                 <div class="item-body">
                     <div class="item-title">${esc(b.title)}${b.locked ? ` <i class="book-lock fas fa-lock" aria-label="잠근 책"></i>` : ''}</div>
