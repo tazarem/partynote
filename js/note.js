@@ -893,9 +893,10 @@ class PartyNote {
         el.dataset.status = status
         // 보여 주는 순서만 뒤집음 (쪽 번호와 앞·뒤쪽으로 넘겨 읽는 순서는 그대로). 모든 책에 같은 설정
         const desc = note_config.get('page_sort') === 'desc'
-        // 장 단위로 묶어 보여 줌. 내림차순이면 장의 순서와 장 안의 쪽 순서를 같이 뒤집음 (구분선은 늘 그 장의 맨 위)
+        // 오름차순 목록(장 구분선 → 그 장의 쪽들)을 만들고, 내림차순이면 통째로 뒤집음 (1장이 맨 밑, 구분선은 장과 장 사이)
         const sections = this.sections(b, pages)
-        if (desc) sections.reverse().forEach(sec => sec.pages.reverse())
+        const items = sections.flatMap(sec => [...(sec.chapter ? [{ chapter: sec.chapter }] : []), ...sec.pages.map(page => ({ page }))])
+        if (desc) items.reverse()
         const pageRow = ([p, i]) => `
                         <li class="page ${p.id === b.bookmark_id ? 'marked' : ''}">
                             <button type="button" class="page-item" data-page-open="${p.id}">
@@ -936,7 +937,7 @@ class PartyNote {
             </div>
             ${sections.length ? `
                 <ol class="page-list">
-                    ${sections.map(sec => `${sec.chapter ? chapterRow(sec.chapter) : ''}${sec.pages.map(pageRow).join('')}`).join('')}
+                    ${items.map(x => x.chapter ? chapterRow(x.chapter) : pageRow(x.page)).join('')}
                 </ol>` : ''}
             ${pages.length ? '' : `<p class="book-empty">첫 쪽을 써 보세요. 낱장으로 써 둔 메모를 넣을 수도 있어요.</p>`}`
     }
