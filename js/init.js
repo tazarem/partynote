@@ -78,7 +78,6 @@ class PartyNoteInit {
             const action = e.target.closest('[data-action]')
             if (action?.dataset.action === 'new-memo') return party_note.editMemo(null)
             if (action?.dataset.action === 'new-book') return party_note.newBook()
-            if (action?.dataset.action === 'empty-trash') return party_note.emptyTrash()
             open(e)
         })
         list.addEventListener('keydown', (e) => {

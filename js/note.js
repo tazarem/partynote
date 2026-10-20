@@ -405,10 +405,7 @@ class PartyNote {
             return
         }
         el.innerHTML = `
-            <div class="trash-head">
-                <span>${TRASH_DAYS}일이 지나면 저절로 사라져요</span>
-                <button type="button" class="btn danger-ghost" data-action="empty-trash"><i class="far fa-trash-alt"></i> 휴지통 비우기</button>
-            </div>
+            <div class="trash-head">${TRASH_DAYS}일이 지나면 저절로 사라져요</div>
             ${rows.map(r => {
                 const from = r.kind === 'memo' && r.item.book_id ? [...this.books, ...this.trash_books].find(b => b.id === r.item.book_id) : null
                 const sub = r.kind === 'book' ? `책 · ${r.pages.length ? `${r.pages.length}쪽` : '빈 책'}` : from ? `'${esc(from.title)}'의 쪽` : '메모'
@@ -444,6 +441,9 @@ class PartyNote {
             const where = kind === 'book' ? await this.restoreBook(item) : await this.restoreMemo(item)
             ui.toast(where)
         } else if (choice === 'delete') {
+            // 쪽이 든 책은 제목을 직접 입력해야 지워짐 (한 번에 많은 글이 사라지므로)
+            const pages = kind === 'book' ? this.trashPages(item) : []
+            if (pages.length && !(await ui.confirmTyped(`'${item.title}' 책과 안의 ${pages.length}쪽을 영구 삭제해요.\n되돌릴 수 없어요.`, item.title, { ok: '영구 삭제' }))) return
             await this.destroyTrash(kind, item)
             ui.toast('영구 삭제했어요')
         } else {
@@ -486,16 +486,6 @@ class PartyNote {
             await idb.doDelete('memo', item.id)
             this.trash_memos = this.trash_memos.filter(m => m.id !== item.id)
         }
-    }
-
-    async emptyTrash() {
-        const count = this.trash_books.length + this.trash_memos.length
-        if (!count) return
-        if (!(await ui.confirm(`휴지통의 메모와 책을 모두 영구 삭제할까요?\n되돌릴 수 없어요.`, { ok: '비우기', danger: true }))) return
-        for (const b of [...this.trash_books]) await this.destroyTrash('book', b)
-        for (const m of [...this.trash_memos]) await this.destroyTrash('memo', m)
-        this.render()
-        ui.toast('휴지통을 비웠어요')
     }
 
     // 앱을 열 때: 오래된 것 정리
