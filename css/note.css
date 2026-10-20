@@ -901,6 +901,10 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .popup[data-variant="reader"] .page-nav { transition: transform .25s ease; }
 /* 읽는 동안 쪽 넘기기 줄은 내려가도, 위쪽 가장자리의 읽은 만큼 막대(3px)는 화면 아래에 남김 */
 .popup[data-variant="reader"].immersive .page-nav { transform: translateY(calc(100% - 3px)); }
+/* 낱장 메모: 쪽 넘기기 줄이 없으니 막대만 화면 맨 아래에 */
+.memo-view .solo-progress { position: sticky; bottom: 0; z-index: 2; margin: auto -1rem 0; height: calc(3px + env(safe-area-inset-bottom)); }
+.memo-view .solo-progress .read-progress { top: 0; }
+.popup-content:has(.memo-view .solo-progress) { padding-bottom: 0; }
 .read-progress { position: absolute; left: 0; right: 0; top: -1px; height: 3px; pointer-events: none; }
 .read-progress i { display: block; height: 100%; background: var(--accent); transform: scaleX(var(--p, 0)); transform-origin: left; transition: transform .1s linear; }
 

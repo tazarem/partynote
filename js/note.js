@@ -1362,7 +1362,8 @@ class PartyNote {
                             <button type="button" class="btn ghost" ${index > 0 ? `data-page-open="${pages[index - 1].id}"` : 'disabled'}><i class="fas fa-chevron-left"></i> 앞쪽</button>
                             <span class="page-nav-no">${index + 1} / ${pages.length}쪽</span>
                             <button type="button" class="btn ghost" ${index < pages.length - 1 ? `data-page-open="${pages[index + 1].id}"` : 'disabled'}>뒤쪽 <i class="fas fa-chevron-right"></i></button>
-                        </div>` : ''}
+                        </div>` : `
+                        <div class="solo-progress"><div class="read-progress" aria-hidden="true"><i></i></div></div>`}
                 </div>`,
         })
         this.reader_y = 0
