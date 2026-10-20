@@ -128,6 +128,37 @@ function periodLabel(from, to = Date.now()) {
     return `${parts.join(' ')}째`
 }
 
+// 표지 사진: 가운데를 3:4로 잘라 300×400 JPEG로 줄임 (백업 파일에 그대로 들어감)
+function makeCoverImage(file) {
+    return new Promise((res, rej) => {
+        const img = new Image()
+        const url = URL.createObjectURL(file)
+        img.onload = () => {
+            const W = 300, H = 400
+            const scale = Math.max(W / img.width, H / img.height)
+            const canvas = document.createElement('canvas')
+            canvas.width = W
+            canvas.height = H
+            const ctx = canvas.getContext('2d')
+            ctx.fillStyle = '#fff' // 투명한 PNG는 흰 바탕으로
+            ctx.fillRect(0, 0, W, H)
+            ctx.drawImage(img, (W - img.width * scale) / 2, (H - img.height * scale) / 2, img.width * scale, img.height * scale)
+            URL.revokeObjectURL(url)
+            res(canvas.toDataURL('image/jpeg', 0.82))
+        }
+        img.onerror = (e) => {
+            URL.revokeObjectURL(url)
+            rej(e)
+        }
+        img.src = url
+    })
+}
+
+// 표지 사진으로 쓸 수 있는 값인지 (가져온 백업 파일의 값도 이걸로 거름)
+function isCoverImage(v) {
+    return typeof v === 'string' && v.length < 2000000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v)
+}
+
 // 내려받기: 글자(또는 만들어 둔 Blob)를 파일로
 // 휴지통에 들어간 지 며칠: '오늘', '어제', '3일 전'
 function daysAgoLabel(time) {
@@ -529,13 +560,21 @@ class PartyNote {
         return item.favorite ? `<i class="item-fav fas fa-star" aria-label="즐겨찾기"></i>` : ''
     }
 
+    // 책 표지: 사진이 있으면 사진, 없으면 색과 책 아이콘
+    coverHtml(b, cls) {
+        if (isCoverImage(b.cover)) return `<span class="${cls} has-cover" style="background-image:url(${b.cover})" role="img" aria-label="표지"></span>`
+        return cls === 'book-spine'
+            ? `<div class="book-spine"><i class="${ICONS.book}"></i></div>`
+            : `<i class="${cls} ${ICONS.book}" style="background:${this.coverColor(b)}"></i>`
+    }
+
     bookRowHtml(b) {
         const pages = this.pages(b.id)
         const status = statusOf(b)
         const closed = BOOK_STATUS[status].short
         return `
             <div class="item-row book" data-book-id="${b.id}" data-status="${status}" tabindex="0" role="button">
-                <i class="item-icon book-cover ${ICONS.book}" style="background:${this.coverColor(b)}"></i>
+                ${this.coverHtml(b, 'item-icon book-cover')}
                 <div class="item-body">
                     <div class="item-title">${esc(b.title)}${b.locked ? ` <i class="book-lock fas fa-lock" aria-label="잠근 책"></i>` : ''}</div>
                     <div class="item-sub clip">${closed ? `<i class="${BOOK_STATUS[status].icon}"></i> ${closed} · ` : ''}${pages.length ? `${pages.length}쪽 · ${esc(pages.map(p => p.title).join(', '))}` : '아직 빈 책이에요'}</div>
@@ -658,16 +697,43 @@ class PartyNote {
     async openBookMenu() {
         const b = this.book(this.open_book_id)
         if (!b) return
-        const choice = await ui.openSheet({
+        // 사진 고르기 창은 누른 순간 바로 열어야 해서(아이폰) 버튼 대신 파일 칸의 label을 씀
+        let picked = null
+        const sheet = ui.openSheet({
             title: b.title,
             content: `
                 <div class="sheet-options">
                     <button type="button" class="sheet-option" data-sheet-value="rename"><i class="fas fa-pen"></i> 제목 고치기</button>
+                    <label class="sheet-option"><i class="far fa-image"></i> 표지 사진 ${b.cover ? '바꾸기' : '넣기'}<input type="file" class="cover-file" accept="image/*" hidden></label>
+                    ${b.cover ? `<button type="button" class="sheet-option" data-sheet-value="cover-off"><i class="fas fa-palette"></i> 표지 사진 빼기 (색 표지로)</button>` : ''}
                     ${b.locked ? '' : `<button type="button" class="sheet-option danger" data-sheet-value="delete"><i class="far fa-trash-alt"></i> 삭제</button>`}
                 </div>`,
         })
+        ;[...document.querySelectorAll('.cover-file')].pop()?.addEventListener('change', (e) => {
+            picked = e.target.files[0]
+            if (picked) ui.closeSheet('cover')
+        })
+        const choice = await sheet
+        if (choice === 'cover') return this.setBookCover(b, picked)
+        if (choice === 'cover-off') return this.setBookCover(b, null)
         if (choice === 'rename') return this.renameBook()
         if (choice === 'delete') return this.deleteBook()
+    }
+
+    async setBookCover(b, file) {
+        if (file) {
+            try {
+                b.cover = await makeCoverImage(file)
+            } catch (e) {
+                return ui.toast('이 사진은 열 수 없어요')
+            }
+        } else {
+            b.cover = ''
+        }
+        await this.saveBookRecord(b)
+        this.render()
+        this.renderBook()
+        ui.toast(file ? '표지를 바꿨어요' : '색 표지로 돌렸어요')
     }
 
     // 열려 있는 책의 내용만 다시 그립니다. (스크롤 위치는 그대로)
@@ -692,7 +758,7 @@ class PartyNote {
                     <span>${BOOK_STATUS[status].label}이에요 · ${esc(fullDate(b.status_at))}</span>
                 </div>` : ''}
             <div class="book-head" style="--cover:${this.coverColor(b)}">
-                <div class="book-spine"><i class="${ICONS.book}"></i></div>
+                ${this.coverHtml(b, 'book-spine')}
                 <div class="book-info">
                     <h2 class="book-title">${esc(b.title)}${b.locked ? ` <i class="book-lock fas fa-lock" aria-label="잠근 책"></i>` : ''}</h2>
                     <div class="book-meta">${pages.length ? `${pages.length}쪽` : '아직 빈 책이에요'} · ${esc(dateTimeLabel(b.created_at))}에 만듦</div>
@@ -966,6 +1032,7 @@ class PartyNote {
                 <div class="sheet-options">
                     ${index > 0 ? `<button type="button" class="sheet-option" data-sheet-value="up"><i class="fas fa-arrow-up"></i> 앞쪽으로</button>` : ''}
                     ${index < pages.length - 1 ? `<button type="button" class="sheet-option" data-sheet-value="down"><i class="fas fa-arrow-down"></i> 뒤쪽으로</button>` : ''}
+                    ${pages.length > 2 ? `<button type="button" class="sheet-option" data-sheet-value="jump"><i class="fas fa-exchange-alt"></i> 쪽 번호로 옮기기</button>` : ''}
                     <button type="button" class="sheet-option" data-sheet-value="out"><i class="fas fa-sign-out-alt"></i> 책에서 빼기 (낱장으로)</button>
                     <button type="button" class="sheet-option danger" data-sheet-value="delete"><i class="far fa-trash-alt"></i> 삭제</button>
                 </div>`,
@@ -977,6 +1044,8 @@ class PartyNote {
             ;[m.order, other.order] = [other.order, m.order]
             for (const p of pages) await this.saveMemoRecord(p, { touch: false })
             await this.saveBookRecord(b)
+        } else if (choice === 'jump') {
+            if (!(await this.movePageTo(m, pages))) return
         } else if (choice === 'out') {
             await this.takeOutOfBook(m)
         } else if (choice === 'delete') {
@@ -988,6 +1057,37 @@ class PartyNote {
         }
         this.render()
         this.renderBook()
+    }
+
+    // 쪽 번호를 적고 그 쪽의 앞/뒤로 옮기기 (번호는 옮기기 전 기준). 옮겼으면 true
+    async movePageTo(m, pages) {
+        const from = pages.indexOf(m)
+        const pick = await ui.promptNumber(`'${m.title}' (지금 ${from + 1}쪽)\n몇 쪽의 앞이나 뒤로 옮길까요?`, {
+            max: pages.length,
+            placeholder: `쪽 번호 (1~${pages.length})`,
+            buttons: [
+                { value: 'before', label: (n) => n ? `${n}쪽 앞에` : '앞에' },
+                { value: 'after', label: (n) => n ? `${n}쪽 뒤에` : '뒤에' },
+            ],
+        })
+        if (!pick) return false
+        const target = pages[pick.n - 1]
+        if (target === m) {
+            ui.toast('옮길 쪽과 같은 쪽이에요')
+            return false
+        }
+        const rest = pages.filter(p => p !== m)
+        const at = rest.indexOf(target) + (pick.value === 'after' ? 1 : 0)
+        if (at === from) {
+            ui.toast('이미 그 자리에 있어요')
+            return false
+        }
+        rest.splice(at, 0, m)
+        rest.forEach((p, i) => p.order = i + 1)
+        for (const p of rest) await this.saveMemoRecord(p, { touch: false })
+        await this.saveBookRecord(this.book(m.book_id))
+        ui.toast(`${at + 1}쪽으로 옮겼어요`)
+        return true
     }
 
     // 낱장 메모 하나를 골라 이 책의 맨 뒤에 넣기
@@ -1451,7 +1551,7 @@ class PartyNote {
         const base = { uid: uid(raw.uid) || newUid(), title, favorite: raw.favorite ? 1 : 0, hidden: raw.hidden ? 1 : 0, created_at: time(raw.created_at), updated_at: time(raw.updated_at) }
         if (kind === 'book') {
             const status = ['done', 'stopped'].includes(raw.status) ? raw.status : 'active'
-            return { ...idb.newRecord('book'), ...base, status, status_at: status === 'active' ? 0 : time(raw.status_at), locked: raw.locked ? 1 : 0, bookmark_uid: uid(raw.bookmark_uid) }
+            return { ...idb.newRecord('book'), ...base, cover: isCoverImage(raw.cover) ? raw.cover : '', status, status_at: status === 'active' ? 0 : time(raw.status_at), locked: raw.locked ? 1 : 0, bookmark_uid: uid(raw.bookmark_uid) }
         }
         return { ...idb.newRecord('memo'), ...base, content: text(raw.content, 200000), order: Number.isFinite(raw.order) ? raw.order : 0, book_uid: uid(raw.book_uid) }
     }

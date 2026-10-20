@@ -331,6 +331,55 @@ class UIHandler {
     }
 
     // 한 줄 입력받기 (책 제목 등). 취소·바깥 누르기·Esc는 null, 빈 값은 확인 불가.
+    // 숫자 하나를 적고 버튼 여러 개 중 하나로 정하는 창. 버튼 글자는 적은 숫자에 따라 바뀜 (label(n) 함수)
+    // 결과: { n, value } 또는 null(취소)
+    promptNumber(message, { min = 1, max = 1, placeholder = '', cancel = '취소', buttons = [] } = {}) {
+        return new Promise((res) => {
+            const overlay = document.createElement('div')
+            overlay.className = 'dialog-overlay'
+            overlay.innerHTML = `
+                <div class="dialog" role="dialog" aria-modal="true">
+                    <div class="dialog-message">${esc(message)}</div>
+                    <label class="dialog-typed">
+                        <input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="5" placeholder="${esc(placeholder)}">
+                    </label>
+                    <div class="dialog-btns wrap">
+                        <button type="button" class="btn ghost" data-v="">${esc(cancel)}</button>
+                        ${buttons.map(b => `<button type="button" class="btn primary" data-v="${esc(b.value)}"></button>`).join('')}
+                    </div>
+                </div>`
+            const input = overlay.querySelector('input')
+            const number = () => {
+                const n = Number(input.value.trim())
+                return Number.isInteger(n) && n >= min && n <= max ? n : null
+            }
+            const sync = () => {
+                const n = number()
+                buttons.forEach(b => {
+                    const btn = overlay.querySelector(`[data-v="${b.value}"]`)
+                    btn.textContent = b.label(n)
+                    btn.disabled = n === null
+                })
+            }
+            const onKey = (e) => { if (e.key === 'Escape') close(null) }
+            const close = (result) => {
+                document.removeEventListener('keydown', onKey)
+                overlay.remove()
+                res(result)
+            }
+            input.addEventListener('input', sync)
+            document.addEventListener('keydown', onKey)
+            overlay.addEventListener('click', (e) => {
+                const btn = e.target.closest('button')
+                if (btn) return close(btn.dataset.v && number() !== null ? { n: number(), value: btn.dataset.v } : null)
+                if (e.target === overlay) close(null)
+            })
+            document.body.appendChild(overlay)
+            sync()
+            input.focus()
+        })
+    }
+
     prompt(message, { value = '', placeholder = '', ok = '확인', cancel = '취소', maxlength = 200 } = {}) {
         return new Promise((res) => {
             const overlay = document.createElement('div')

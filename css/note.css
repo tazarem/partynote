@@ -811,7 +811,12 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .status-banner { margin-bottom: 1rem; }
 /* 완결한 책: 표지 아이콘은 금빛 위에서도 보이게 그대로 둠 */
 .item-row.book[data-status="done"] .item-icon.book-cover { color: #fff; }
-.item-row.book[data-status="stopped"] .item-icon.book-cover { background: var(--sub) !important; }
+.item-row.book[data-status="stopped"] .item-icon.book-cover { background-color: var(--sub) !important; }
+.item-row.book[data-status="stopped"] .has-cover { filter: grayscale(1); }
+/* 표지 사진 */
+.has-cover { background-size: cover; background-position: center; background-color: var(--line); }
+.item-icon.has-cover { width: 1.8rem; height: 2.4rem; margin: 0 .225rem; border-radius: .2rem .4rem .4rem .2rem; box-shadow: inset .2rem 0 0 #0002, 0 1px 3px #0003; }
+.book-spine.has-cover { padding: 0; }
 
 /* ---------- 아이폰: 입력칸을 눌러도 화면이 확대되지 않게 ---------- */
 /* 아이폰(Safari)은 글자가 16px보다 작은 입력칸에 커서를 두면 화면을 확대합니다.
