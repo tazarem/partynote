@@ -15,6 +15,17 @@ class Account {
     async init() {
         if (!this.base) return
         $('.account-wrap').hidden = false
+        // 인터넷이 끊기면 바로 안내, 다시 이어지면 알아서 서버에 다시 붙음 (로그인 쿠키는 그대로라 다시 로그인할 필요 없음)
+        window.addEventListener('offline', () => {
+            this.user = null
+            this.reachable = false
+            this.render()
+        })
+        window.addEventListener('online', () => this.refresh())
+        // 앱을 오래 뒤에 다시 열었을 때도 (폰에서 다른 앱 갔다가 돌아옴 등) 연결이 안 돼 있던 상태면 한 번 더 시도
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && !this.reachable && navigator.onLine) this.refresh()
+        })
         await this.refresh()
     }
 
