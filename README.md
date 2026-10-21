@@ -127,7 +127,7 @@
 ## 개인정보
 
 - 글은 서버로 보내지 않아요. 클라우드 백업을 쓸 때만 백업 파일이 보관돼요.
-- 자세한 내용: [개인정보처리방침](https://coding-coconut.com/partynote/privacy.html)
+- 자세한 내용: [개인정보처리방침](https://coding-coconut.com/partynote/privacy.html) · [이용약관](https://coding-coconut.com/partynote/terms.html)
 - 문의·계정 삭제 요청: **partynote.help@gmail.com**
 
 ## 응원하기

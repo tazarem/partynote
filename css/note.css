@@ -972,3 +972,22 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 /* 메뉴의 저자명 */
 .epub-author-name { font-weight: bold; overflow-wrap: anywhere; }
 .epub-author-name.empty { font-weight: normal; color: var(--sub); font-size: .9rem; }
+
+/* 메뉴의 개인정보처리방침·이용약관: 반투명 회색 알약 단추 + 화살표 */
+.policy-links { display: flex; flex-wrap: wrap; gap: .4rem; margin: .1rem 0 .6rem; }
+.policy-link {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .3rem .55rem .3rem .8rem;
+    border-radius: 2rem;
+    background: #8080802b; /* 중간 회색 반투명: 밝은 테마·어두운 테마 둘 다 보임 */
+    box-shadow: 0 1px 3px #00000026, inset 0 0 0 1px #8080801f;
+    color: var(--sub);
+    font-size: .8rem;
+    text-decoration: none;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+.policy-link i { font-size: .65rem; opacity: .7; }
+.policy-link:hover, .policy-link:active { background: #80808045; color: var(--text); }
