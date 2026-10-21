@@ -18,7 +18,7 @@ function epubPage(title, body) {
 </html>`
 }
 
-// book: { uid, title, cover }, info: 제목 쪽의 작은 줄들, sections: [{ title (장 제목, '' = 첫 장 앞), texts: [쪽 본문…] }], author: 지은이
+// book: { uid, title, cover }, info: 제목 쪽의 작은 줄들, sections: [{ title (장 제목, '' = 첫 장 앞), texts: [쪽 본문…] }], author: 저자명
 function makeBookEpub(book, info, sections, author) {
     const has_cover = isCoverImage(book.cover)
     const cover_type = has_cover ? book.cover.slice(5, book.cover.indexOf(';')) : ''

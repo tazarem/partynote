@@ -232,7 +232,6 @@ class PartyNote {
         $('meta[name="theme-color"]').setAttribute('content', theme.meta_color)
         document.documentElement.dataset.theme = name
         $$('input[name="app_theme"]').forEach(el => el.checked = el.value === name)
-        this.renderEpubAuthor()
         $$('input[name="show_private"]').forEach(el => el.checked = el.value === (this.showPrivate() ? 'on' : 'off'))
         this.theme = theme
     }
@@ -1091,7 +1090,7 @@ class PartyNote {
             { value: 'txt', label: '텍스트 파일 (.txt)' },
         ], { stack: true })
         if (!kind) return
-        // 전자책은 지은이가 필요: 처음 한 번만 묻고 기억함 (메뉴에서 바꿀 수 있음)
+        // 전자책은 저자명이 필요: 처음 한 번만 묻고 기억함 (메뉴에서 바꿀 수 있음)
         if (kind === 'epub' && !note_config.get('epub_author') && !(await this.editEpubAuthor())) return
         // 파일 이름에 쓸 수 없는 글자는 뺌
         const name = b.title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').trim().slice(0, 60) || 'book'
@@ -1127,19 +1126,14 @@ class PartyNote {
         downloadText(`${name}.txt`, '\ufeff' + text, 'text/plain;charset=utf-8') // 윈도 메모장에서도 한글이 안 깨지게 BOM
     }
 
-    // 전자책 지은이 이름 (한 번 적으면 기억). 적었으면 true
+    // 전자책 저자명 (한 번 적으면 기억). 적었으면 true
     async editEpubAuthor() {
         const now = note_config.get('epub_author')
-        const name = await ui.prompt('전자책에 넣을 지은이 이름을 적어 주세요.\n한 번 적으면 기억해요. 메뉴에서 바꿀 수 있어요.', { value: now, placeholder: '지은이 (필명도 좋아요)', ok: '저장', maxlength: 40 })
+        const name = await ui.prompt('전자책에 표기할 저자명을 적어 주세요.\n한 번 적으면 기억해요. 메뉴에서 바꿀 수 있어요.', { value: now, placeholder: '저자명 (필명도 좋아요)', ok: '저장', maxlength: 40 })
         if (!name) return false
         note_config.set('epub_author', name)
-        this.renderEpubAuthor()
+        ui.toast(`저자명을 '${name}'(으)로 저장했어요`)
         return true
-    }
-
-    renderEpubAuthor() {
-        const el = $('.epub-author-name')
-        if (el) el.textContent = note_config.get('epub_author') || '아직 없어요'
     }
 
     // 쪽 목록을 오름차순 ↔ 내림차순으로. 한 번 바꾸면 다른 책에도 똑같이 적용됩니다.
