@@ -968,3 +968,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 
 /* 클라우드 백업 목록: 날짜 아래 작은 글씨 */
 .sheet-option small.sub { color: var(--sub); font-size: .78rem; }
+
+/* 메뉴의 저자명 */
+.epub-author-name { font-weight: bold; overflow-wrap: anywhere; }
+.epub-author-name.empty { font-weight: normal; color: var(--sub); font-size: .9rem; }

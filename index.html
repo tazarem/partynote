@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-title" content="파티노트">
     <meta name="description" content="짧은 이야기를 낱장 메모로 적고, 묶어서 책으로 만드는 노트">
     <!-- 이 사이트의 파일에 있는 스크립트만 실행. 인라인 스크립트/이벤트 속성은 차단 -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://accounts.google.com/gsi/ http://localhost:4100 http://127.0.0.1:9000; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://accounts.google.com/gsi/ https://api.coding-coconut.com https://partynote-prod.s3.ap-northeast-2.amazonaws.com http://localhost:4100 http://127.0.0.1:9000; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'self'; form-action 'none'">
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" type="image/png" href="./img/icons/favicon-32.png">
     <link rel="apple-touch-icon" href="./img/icons/apple-touch-icon.png">
@@ -106,6 +106,7 @@
 
             <h3>저자명</h3>
             <div class="config-caption">책을 전자책 포맷(.epub)으로 내보낼 때 저자명으로 표기돼요.</div>
+            <div class="epub-author-name"></div>
             <div class="menu-btn-group">
                 <button type="button" class="btn ghost epub-author-btn"><i class="fas fa-pen"></i> 저자명 바꾸기</button>
             </div>

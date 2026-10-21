@@ -233,6 +233,7 @@ class PartyNote {
         document.documentElement.dataset.theme = name
         $$('input[name="app_theme"]').forEach(el => el.checked = el.value === name)
         $$('input[name="show_private"]').forEach(el => el.checked = el.value === (this.showPrivate() ? 'on' : 'off'))
+        this.renderEpubAuthor()
         this.theme = theme
     }
 
@@ -1132,8 +1133,18 @@ class PartyNote {
         const name = await ui.prompt('전자책에 표기할 저자명을 적어 주세요.\n한 번 적으면 기억해요. 메뉴에서 바꿀 수 있어요.', { value: now, placeholder: '저자명 (필명도 좋아요)', ok: '저장', maxlength: 40 })
         if (!name) return false
         note_config.set('epub_author', name)
+        this.renderEpubAuthor()
         ui.toast(`저자명을 '${name}'(으)로 저장했어요`)
         return true
+    }
+
+    // 메뉴의 저자명 칸: 정해 둔 이름 (없으면 안내)
+    renderEpubAuthor() {
+        const el = $('.epub-author-name')
+        if (!el) return
+        const name = note_config.get('epub_author')
+        el.textContent = name || '아직 정하지 않았어요'
+        el.classList.toggle('empty', !name)
     }
 
     // 쪽 목록을 오름차순 ↔ 내림차순으로. 한 번 바꾸면 다른 책에도 똑같이 적용됩니다.
