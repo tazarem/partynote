@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-title" content="파티노트">
     <meta name="description" content="짧은 이야기를 낱장 메모로 적고, 묶어서 책으로 만드는 노트">
     <!-- 이 사이트의 파일에 있는 스크립트만 실행. 인라인 스크립트/이벤트 속성은 차단 -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://accounts.google.com/gsi/ http://localhost:4100 http://127.0.0.1:9000; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'self'; form-action 'none'">
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" type="image/png" href="./img/icons/favicon-32.png">
     <link rel="apple-touch-icon" href="./img/icons/apple-touch-icon.png">
@@ -25,6 +25,7 @@
     <script src="./js/epub.js"></script>
     <script src="./js/note.js"></script>
     <script src="./js/install.js"></script>
+    <script src="./js/account.js"></script>
     <script src="./js/init.js"></script>
 </head>
 <body>
@@ -87,6 +88,13 @@
 
             <h3>앱으로 설치</h3>
             <div class="install-section"></div>
+
+            <!-- 계정: 파티노트 서버가 있을 때만 보임 (js/account.js) -->
+            <div class="account-wrap" hidden>
+                <h3>계정</h3>
+                <div class="config-caption">로그인하면 아래 백업에서 클라우드에 백업하고 복원할 수 있어요. (최근 3개까지 보관)</div>
+                <div class="account-section"></div>
+            </div>
 
             <h3>백업</h3>
             <div class="config-caption">적어 둔 내용은 이 기기의 브라우저(IndexedDB)에만 저장돼요. 기기를 바꾸거나 앱 데이터를 지우기 전에 내보내 두세요. 선물 받은 책 파일도 가져오기로 넣어요.</div>

@@ -265,12 +265,17 @@ button { cursor: pointer; }
 /* 기기의 '동작 줄이기' 설정과 상관없이 움직입니다. (사용자가 원한 효과인데 그 설정 때문에 꺼져 보였음)
    메뉴·선택창 모두 같은 방침 */
 .menu-screen h3 { margin: 1.75rem 0 .25rem; }
-.menu-screen h3:first-child { margin-top: 0; }
+.menu-screen > h3:first-child { margin-top: 0; } /* 메뉴 맨 위 제목만 (계정 칸처럼 묶음 안의 첫 제목은 그대로) */
 .config-caption { font-size: .85rem; color: var(--sub); margin-bottom: .5rem; }
 .radio-group { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
 .radio-group label { display: inline-flex; align-items: center; gap: .3rem; cursor: pointer; }
 .radio-group input { accent-color: var(--accent); }
 .menu-btn-group { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+/* 계정 (구글 로그인) */
+.account-user { overflow-wrap: anywhere; }
+.account-user i, .account-note i { opacity: .7; margin-right: .2rem; }
+.account-note { font-size: .85rem; color: var(--sub); }
+.google-btn { min-height: 44px; margin-top: .25rem; }
 
 /* ---------- 토스트 / 다이얼로그 ---------- */
 .toast-zone {
@@ -960,3 +965,6 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 
 /* 위쪽 줄의 제목(글 제목·책 제목·편집 화면 이름): 옆 아이콘 버튼과 비슷한 크기로 */
 .popup-header .title { font-size: 1rem; }
+
+/* 클라우드 백업 목록: 날짜 아래 작은 글씨 */
+.sheet-option small.sub { color: var(--sub); font-size: .78rem; }

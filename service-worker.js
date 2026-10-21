@@ -2,8 +2,8 @@
     class PartyNoteWebCache {
         constructor() {
             // 앱 파일을 바꾸면 버전을 올려야 사용자 기기의 캐시가 갱신됩니다.
-            this.STATIC_CACHE_NAME = 'partynote_static_v1.29'
-            this.DYNAMIC_CACHE_NAME = 'partynote_dynamic_v1.29'
+            this.STATIC_CACHE_NAME = 'partynote_static_v1.30'
+            this.DYNAMIC_CACHE_NAME = 'partynote_dynamic_v1.30'
             this.STATIC_CACHE_LIST = [
                 './',
                 './index.html',
@@ -14,6 +14,7 @@
                 './js/ui.js',
                 './js/docx.js',
                 './js/epub.js',
+                './js/account.js',
                 './js/note.js',
                 './js/install.js',
                 './js/init.js',
@@ -62,12 +63,15 @@
         // 캐시 우선 + 백그라운드 갱신(stale-while-revalidate)
         // - 이 앱의 파일(같은 주소): 서버에 바뀌었는지 물어보고(no-cache), 바뀐 것은 실제로 쓰는 static 캐시에 덮어씀
         //   → 다음에 열 때 새 파일이 보임
-        // - 바깥 파일(웹폰트 등): dynamic 캐시에 보관
+        // - 웹폰트(cdn.jsdelivr.net): dynamic 캐시에 보관
+        // - 그 밖의 바깥 주소(파티노트 서버의 로그인 정보, 구글 로그인 등)는 건드리지 않음: 캐시하면 남의 로그인 정보가 남거나 옛 상태가 보임
         dynamicCacheStrategy(e) {
             if (e.request.method !== 'GET') return
             if (!e.request.url.startsWith('http')) return
 
-            const is_app_file = new URL(e.request.url).origin === self.location.origin
+            const url = new URL(e.request.url)
+            const is_app_file = url.origin === self.location.origin
+            if (!is_app_file && url.hostname !== 'cdn.jsdelivr.net') return
             const is_page = e.request.mode === 'navigate'
 
             e.respondWith((async () => {

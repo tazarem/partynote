@@ -195,9 +195,31 @@ class PartyNoteInit {
                 e.target.value = ''
             }
         })
-        $('.export-btn').addEventListener('click', () => party_note.exportBackup())
-        $('.import-btn').addEventListener('click', () => $('#import-file').click())
+        // 로그인했으면 클라우드 / 이 기기 파일 중에서 고름
+        $('.export-btn').addEventListener('click', async () => {
+            if (!account.user) return party_note.exportBackup()
+            const where = await ui.choose('어디에 백업할까요?', [
+                { value: 'cloud', label: '클라우드에 백업', style: 'primary' },
+                { value: 'file', label: '이 기기에 파일로 저장' },
+            ], { stack: true })
+            if (where === 'cloud') account.backupToCloud()
+            if (where === 'file') party_note.exportBackup()
+        })
+        $('.import-btn').addEventListener('click', async () => {
+            if (!account.user) return $('#import-file').click()
+            const where = await ui.choose('무엇으로 복원할까요?\n지금 목록에 합쳐지고, 같은 글은 더 최근에 고친 쪽이 남아요.', [
+                { value: 'cloud', label: '클라우드에서 복원', style: 'primary' },
+                { value: 'file', label: '파일에서 복원' },
+            ], { stack: true })
+            if (where === 'cloud') account.restoreFromCloud()
+            if (where === 'file') $('#import-file').click()
+        })
         $('.epub-author-btn').addEventListener('click', () => party_note.editEpubAuthor())
+        $('.account-section').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-account]')
+            if (btn?.dataset.account === 'logout') account.logout()
+            if (btn?.dataset.account === 'retry') account.refresh()
+        })
         $('.delete-all-btn').addEventListener('click', () => party_note.deleteAll())
         $('.app-version').textContent = `v${APP_CONFIG.app_version}`
     }
@@ -212,6 +234,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     init_svc.bindPopup()
     init_svc.bindMenu()
     install_guide.init()
+    account.init() // 기다리지 않음 (서버가 느려도 앱은 바로 열리게)
     ui.on_popup_step_back = () => party_note.navBack()
     try {
         await party_note.init()
