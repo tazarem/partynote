@@ -85,11 +85,11 @@ const notices = {
         if (!wrap) return
         wrap.hidden = !this.items.length // 받은 공지가 없으면 칸째 숨김
         const seen = this.seenId()
-        // 최근 3개까지. 아직 안 읽은 공지는 펼쳐 둠
+        // 최근 3개까지, 제목만 접어서. 아직 안 읽은 공지는 제목 앞에 빨간 점
         $('.notice-list').innerHTML = this.items.slice(0, 3).map(n => `
-            <details class="notice" ${n.id > seen ? 'open' : ''}>
+            <details class="notice">
                 <summary>
-                    ${n.id > seen ? '<span class="notice-new">새 공지</span>' : ''}
+                    ${n.id > seen ? '<span class="notice-new" aria-label="새 공지"></span>' : ''}
                     <span class="notice-title">${esc(n.title)}</span>
                     <span class="notice-date">${esc(this.dateLabel(n.date))}</span>
                 </summary>
@@ -104,7 +104,7 @@ const notices = {
         if (dot) dot.hidden = this.latestId() <= this.seenId()
     },
 
-    // 메뉴를 열면 읽은 것으로 (점은 바로 사라지고, '새 공지' 표시는 다음에 메뉴를 열 때 사라짐)
+    // 메뉴를 열면 읽은 것으로 (메뉴 버튼의 점은 바로 사라지고, 제목 앞의 점은 다음에 앱을 열 때 사라짐)
     markSeen() {
         if (!this.items.length) return
         try { localStorage.setItem(NOTICE_SEEN_KEY, String(Math.max(this.latestId(), this.seenId()))) } catch (e) { }

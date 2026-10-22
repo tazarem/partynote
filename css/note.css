@@ -266,6 +266,8 @@ button { cursor: pointer; }
    메뉴·선택창 모두 같은 방침 */
 .menu-screen h3 { margin: 1.75rem 0 .25rem; }
 .menu-screen > h3:first-child { margin-top: 0; } /* 메뉴 맨 위 제목만 (계정 칸처럼 묶음 안의 첫 제목은 그대로) */
+.menu-screen > .notice-wrap:first-child > h3 { margin-top: 0; } /* 맨 위 공지 칸 */
+.menu-screen > .notice-wrap[hidden]:first-child + h3 { margin-top: 0; } /* 공지 칸이 숨겨지면 그다음 제목이 맨 위 */
 .config-caption { font-size: .85rem; color: var(--sub); margin-bottom: .5rem; }
 .radio-group { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
 .radio-group label { display: inline-flex; align-items: center; gap: .3rem; cursor: pointer; }
@@ -1004,7 +1006,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .notice summary::-webkit-details-marker { display: none; }
 .notice-title { font-weight: 600; }
 .notice-date { margin-left: auto; font-size: .75rem; color: var(--sub); white-space: nowrap; }
-.notice-new { font-size: .68rem; font-weight: 700; color: #fff; background: #E53935; border-radius: 1rem; padding: .05rem .4rem; }
+.notice-new { flex-shrink: 0; align-self: center; width: .45rem; height: .45rem; border-radius: 50%; background: #E53935; }
 .notice-body { margin-top: .35rem; font-size: .82rem; color: var(--sub); line-height: 1.6; }
 .notice-body p, .notice-body ul { margin: .25rem 0; }
 .notice-body ul { padding-left: 1.1rem; }
