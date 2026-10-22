@@ -130,6 +130,7 @@ class PartyNoteInit {
                     case 'draft-load': return party_note.loadDraft()
                     case 'memo-save': return party_note.saveMemo()
                     case 'memo-cancel': return party_note.cancelMemoEdit()
+                    case 'memo-mini': return mini_writer.open()
                     case 'chapter-add': return party_note.addChapter()
                 }
             }

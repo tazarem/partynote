@@ -1519,6 +1519,7 @@ class PartyNote {
             // 임시 저장 상태: 글이 길어져도 늘 보이도록 위쪽 고정 줄에 둠
             // 취소·저장은 위쪽 고정 줄에 (글이 길어도 스크롤 없이 바로 누를 수 있게). 이 화면에서는 ✕ 대신 취소
             actions: `<span class="draft-status" aria-live="polite"></span>
+                ${mini_writer.supported() ? '<button type="button" class="icon-btn header-mini" data-action="memo-mini" aria-label="미니 창으로 쓰기" title="미니 창으로 쓰기"><i class="far fa-window-restore"></i></button>' : ''}
                 <button type="button" class="btn ghost header-cancel" data-action="memo-cancel">취소</button>
                 <button type="button" class="btn primary header-save" data-action="memo-save"><i class="fas fa-check"></i> 저장</button>`,
             variant: 'editor', // 아래로 써 내려가면 위쪽 줄과 제목 칸을 숨김 (onReaderScroll)

@@ -1012,3 +1012,25 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .notice-body p, .notice-body ul { margin: .25rem 0; }
 .notice-body ul { padding-left: 1.1rem; }
 .notice-body a { color: var(--text); }
+
+/* ---------- 미니 창 (PC 크롬·엣지에서 다른 창 위에 떠 있는 세 줄짜리 글쓰기 창, js/mini.js) ---------- */
+.header-mini { flex-shrink: 0; }
+.mini-body { min-height: 100vh; display: flex; align-items: center; padding: 8px; overflow: hidden; }
+.mini-box { flex: 1; min-width: 0; padding: .45rem .9rem; border: 1px solid var(--line); border-radius: 1.1rem; background: var(--surface); }
+.mini-box:focus-within { border-color: var(--accent); }
+.mini-input {
+    display: block;
+    width: 100%;
+    height: calc(1.7em * 3); /* 딱 세 줄 */
+    padding: 0;
+    border: 0;
+    outline: none;
+    resize: none;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    line-height: 1.7;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+.mini-input::-webkit-scrollbar { display: none; }
