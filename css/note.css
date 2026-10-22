@@ -277,6 +277,7 @@ button { cursor: pointer; }
 .account-user { overflow-wrap: anywhere; }
 .account-user i, .account-note i { opacity: .7; margin-right: .2rem; }
 .account-note { font-size: .85rem; color: var(--sub); }
+.account-withdraw { display: block; margin-top: .6rem; padding: .2rem 0; background: none; border: 0; font: inherit; font-size: .78rem; color: var(--sub); text-decoration: underline; cursor: pointer; }
 .google-btn { min-height: 44px; margin-top: .25rem; }
 
 /* ---------- 토스트 / 다이얼로그 ---------- */

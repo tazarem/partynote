@@ -229,6 +229,7 @@ class PartyNoteInit {
             const btn = e.target.closest('[data-account]')
             if (btn?.dataset.account === 'logout') account.logout()
             if (btn?.dataset.account === 'retry') account.refresh()
+            if (btn?.dataset.account === 'withdraw') account.withdraw()
         })
         $('.delete-all-btn').addEventListener('click', () => party_note.deleteAll())
         $('.app-version').textContent = `v${APP_CONFIG.app_version}`

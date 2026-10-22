@@ -61,7 +61,8 @@ class Account {
         }
         if (this.user) {
             el.innerHTML = `<div class="account-user"><i class="fas fa-user-circle"></i> <b>${esc(this.user.email)}</b> 로 로그인했어요</div>
-                <div class="menu-btn-group"><button type="button" class="btn ghost" data-account="logout"><i class="fas fa-sign-out-alt"></i> 로그아웃</button></div>`
+                <div class="menu-btn-group"><button type="button" class="btn ghost" data-account="logout"><i class="fas fa-sign-out-alt"></i> 로그아웃</button></div>
+                <button type="button" class="account-withdraw" data-account="withdraw">탈퇴하기</button>`
             return
         }
         // 가입(로그인) 전에 약관을 확인할 수 있게 버튼 아래에 안내 (이용약관 제5조)
@@ -196,6 +197,33 @@ class Account {
         this.user = null
         this.render()
         ui.toast('로그인이 풀렸어요. 메뉴의 계정에서 다시 로그인해 주세요')
+    }
+
+    // 탈퇴: 서버의 회원 정보와 클라우드 백업을 지우고, 구글 계정에 남은 파티노트 연결(로그인 허용)도 끊음
+    async withdraw() {
+        const email = this.user?.email
+        if (!email) return
+        const ok = await ui.confirmTyped(
+            `탈퇴하면 이렇게 돼요.\n\n· 클라우드 백업과 계정 정보(${email})가 모두 지워져요.\n· 구글 계정과 파티노트의 연결이 끊어져요. (구글 계정의 '연결된 서드 파티 앱'에서도 빠져요)\n· 이 기기 안의 메모와 책은 그대로 남아요.\n· 나중에 다시 로그인하면 새로 가입돼요.\n\n되돌릴 수 없어요.`,
+            '정말로 탈퇴할게요', { ok: '탈퇴' })
+        if (!ok) return
+        try {
+            const res = await this.api('/auth/me', { method: 'DELETE' })
+            if (res.status === 401) return this.expired()
+            if (res.status === 429) return this.tooMany(res)
+            if (!res.ok) throw new Error(`withdraw ${res.status}`)
+        } catch (e) {
+            console.error(e)
+            return ui.toast('탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요')
+        }
+        // 구글 쪽 연결 끊기 (실패해도 파티노트의 정보는 이미 지워짐)
+        try {
+            await this.loadGoogle()
+            await new Promise((res) => google.accounts.id.revoke(email, res))
+        } catch (e) { }
+        this.user = null
+        this.render()
+        ui.toast('탈퇴했어요. 그동안 고마웠어요')
     }
 
     async logout() {
