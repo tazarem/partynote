@@ -64,7 +64,9 @@ class Account {
                 <div class="menu-btn-group"><button type="button" class="btn ghost" data-account="logout"><i class="fas fa-sign-out-alt"></i> 로그아웃</button></div>`
             return
         }
-        el.innerHTML = `<div class="google-btn"></div>`
+        // 가입(로그인) 전에 약관을 확인할 수 있게 버튼 아래에 안내 (이용약관 제5조)
+        el.innerHTML = `<div class="google-btn"></div>
+            <div class="login-agree">로그인하면 <a href="./terms.html" target="_blank" rel="noopener">이용약관</a>에 동의하고 <a href="./privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a>을 확인한 것으로 봐요.</div>`
         this.renderGoogleButton($('.account-section .google-btn'))
     }
 

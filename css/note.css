@@ -991,3 +991,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 }
 .policy-link i { font-size: .65rem; opacity: .7; }
 .policy-link:hover, .policy-link:active { background: #80808045; color: var(--text); }
+
+/* 로그인 버튼 아래 약관 동의 안내 */
+.login-agree { margin-top: .4rem; font-size: .75rem; color: var(--sub); line-height: 1.5; }
+.login-agree a { color: inherit; }

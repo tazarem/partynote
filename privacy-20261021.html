@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <link rel="icon" type="image/png" href="./img/icons/favicon-32.png">
+    <title>파티노트 개인정보 처리방침 (2026.10.21. ~ 2026.10.21.)</title>
+    <style>
+        :root { --bg: #FFCDD2; --surface: #FFF5F6; --text: #3A1F26; --sub: #8A5A66; --accent: #FF8FAB; --line: #0000001f; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere; }
+        main { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+        article { background: var(--surface); border-radius: 1rem; padding: 1.5rem 1.25rem 2rem; box-shadow: 0 0 0 1px var(--line); }
+        h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+        h2 { font-size: 1.05rem; margin: 1.75rem 0 .5rem; }
+        p, li { font-size: .95rem; }
+        ul { padding-left: 1.2rem; margin: .25rem 0; }
+        .date { color: var(--sub); font-size: .85rem; margin: 0 0 1.25rem; }
+        .summary { background: var(--bg); border-radius: .75rem; padding: .75rem 1rem; }
+        table { width: 100%; border-collapse: collapse; font-size: .9rem; margin: .5rem 0; }
+        th, td { text-align: left; vertical-align: top; padding: .45rem .5rem; border-bottom: 1px solid var(--line); }
+        th { white-space: nowrap; color: var(--sub); font-weight: 600; }
+        a { color: inherit; }
+        .back { display: inline-block; margin-bottom: 1rem; color: var(--text); text-decoration: none; font-size: .9rem; }
+    </style>
+</head>
+<body>
+<main>
+    <a class="back" href="./privacy.html">← 지금의 개인정보 처리방침 보기</a>
+    <p class="summary" style="margin:0 0 1rem"><b>이전 버전</b>입니다. 2026년 10월 21일부터 10월 21일까지 적용되었습니다.</p>
+    <article>
+        <h1>파티노트 개인정보처리방침</h1>
+        <p class="date">시행일: 2026년 10월 21일</p>
+
+        <p class="summary">
+            파티노트는 기본적으로 <b>글을 서버에 보내지 않고 이 기기 안에만 저장</b>합니다.
+            구글 계정으로 로그인해서 <b>클라우드 백업</b>을 쓸 때에만 아래의 정보를 다룹니다.
+        </p>
+
+        <h2>1. 기기 안에만 저장되는 것 (서버로 보내지 않음)</h2>
+        <ul>
+            <li>메모, 책, 장, 표지 사진, 설정 값은 이 기기의 브라우저 저장소(IndexedDB, localStorage)에만 저장됩니다.</li>
+            <li>운영자는 이 내용을 볼 수 없으며, 브라우저의 사이트 데이터를 지우면 함께 지워집니다.</li>
+        </ul>
+
+        <h2>2. 로그인과 클라우드 백업을 쓸 때 다루는 정보</h2>
+        <table>
+            <tr><th>항목</th><td>구글 계정의 이메일 주소, 구글 계정 고유 번호</td></tr>
+            <tr><th>목적</th><td>회원 확인, 내 백업을 나만 볼 수 있게 구분</td></tr>
+            <tr><th>항목</th><td>클라우드에 백업한 파일 (그 시점의 메모·책 전체), 백업한 시각·크기·메모와 책의 개수</td></tr>
+            <tr><th>목적</th><td>다른 기기나 나중에 복원할 수 있게 보관</td></tr>
+            <tr><th>항목</th><td>로그인 쿠키 (30일)</td></tr>
+            <tr><th>목적</th><td>매번 다시 로그인하지 않도록 로그인 상태 유지</td></tr>
+        </table>
+        <ul>
+            <li>구글 계정의 비밀번호는 파티노트가 받지 않습니다. 로그인은 구글이 직접 처리합니다.</li>
+            <li>이름, 프로필 사진, 연락처, 위치 정보는 받지 않습니다.</li>
+            <li>광고, 방문 분석 도구를 쓰지 않으며, 정보를 팔거나 마케팅에 쓰지 않습니다.</li>
+        </ul>
+
+        <h2>3. 보관 기간</h2>
+        <ul>
+            <li>클라우드 백업은 한 사람당 <b>최근 3개</b>만 보관하고, 그보다 오래된 백업은 자동으로 지웁니다.</li>
+            <li>회원 정보(이메일, 구글 계정 고유 번호)는 탈퇴를 요청할 때까지 보관하며, 요청하면 백업 파일과 함께 지체 없이 지웁니다.</li>
+        </ul>
+
+        <h2>4. 맡겨서 처리하는 곳</h2>
+        <table>
+            <tr><th>Google</th><td>구글 계정 로그인</td></tr>
+            <tr><th>Amazon Web Services</th><td>서버 운영과 백업 파일 보관 (서울 리전)</td></tr>
+            <tr><th>GitHub Pages</th><td>파티노트 앱 화면 제공 (글이나 개인정보는 보내지 않음)</td></tr>
+        </table>
+
+        <h2>5. 안전하게 지키는 방법</h2>
+        <ul>
+            <li>모든 통신은 암호화(HTTPS)됩니다.</li>
+            <li>백업 파일은 공개되지 않는 저장소에 두며, 로그인한 본인에게만 몇 분 동안 쓸 수 있는 주소로 내려줍니다.</li>
+            <li>로그인 쿠키는 자바스크립트로 읽을 수 없게(httpOnly) 저장합니다.</li>
+        </ul>
+
+        <h2>6. 내 정보 확인·삭제 요청</h2>
+        <p>
+            내 계정과 백업을 지우고 싶거나 궁금한 점이 있으면 아래 이메일로 알려 주세요.
+            로그인에 쓴 구글 이메일 주소를 함께 적어 주시면 확인 후 처리합니다.
+        </p>
+        <p>문의: <a href="mailto:partynote.help@gmail.com"><b>partynote.help@gmail.com</b></a></p>
+
+        <h2>7. 바뀔 때</h2>
+        <p>이 방침이 바뀌면 이 페이지에 시행일과 함께 알립니다.</p>
+        <p>서비스 이용 조건은 <a href="./terms.html">이용약관</a>을 확인해 주세요.</p>
+    </article>
+</main>
+</body>
+</html>
