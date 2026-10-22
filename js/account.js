@@ -107,6 +107,7 @@ class Account {
     async onCredential(credential) {
         try {
             const res = await this.api('/auth/google', { method: 'POST', body: { credential } })
+            if (res.status === 429) return this.tooMany(res)
             if (!res.ok) throw new Error(String(res.status))
             const data = await res.json()
             this.user = data.user
@@ -126,6 +127,7 @@ class Account {
         try {
             const ticket = await this.api('/backups/upload-url', { method: 'POST', body: { size: blob.size } })
             if (ticket.status === 401) return this.expired()
+            if (ticket.status === 429) return this.tooMany(ticket)
             if (!ticket.ok) throw new Error(`upload-url ${ticket.status}`)
             const { key, upload_url, content_type } = await ticket.json()
             const put = await fetch(upload_url, { method: 'PUT', headers: { 'Content-Type': content_type }, body: blob })
@@ -148,6 +150,7 @@ class Account {
         try {
             const res = await this.api('/backups')
             if (res.status === 401) return this.expired()
+            if (res.status === 429) return this.tooMany(res)
             if (!res.ok) throw new Error(`list ${res.status}`)
             list = (await res.json()).backups
         } catch (e) {
@@ -179,6 +182,13 @@ class Account {
             console.error(e)
             ui.toast('백업을 받아 오지 못했어요. 잠시 뒤 다시 해 주세요')
         }
+    }
+
+    // 서버의 요청 횟수 제한에 걸림: 서버가 보낸 안내 문구를 그대로 보여 줌
+    async tooMany(res) {
+        let message = '너무 자주 했어요. 잠시 뒤에 다시 해 주세요.'
+        try { message = (await res.json()).message || message } catch (e) { }
+        ui.toast(message)
     }
 
     // 로그인 기한이 지남
