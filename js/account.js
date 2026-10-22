@@ -108,7 +108,7 @@ class Account {
     async onCredential(credential) {
         try {
             const res = await this.api('/auth/google', { method: 'POST', body: { credential } })
-            if (res.status === 429) return this.tooMany(res)
+            if (res.status === 429 || res.status === 403) return this.tooMany(res) // 403: 이용 제한된 계정 (서버 안내 문구를 그대로)
             if (!res.ok) throw new Error(String(res.status))
             const data = await res.json()
             this.user = data.user
@@ -185,7 +185,7 @@ class Account {
         }
     }
 
-    // 서버의 요청 횟수 제한에 걸림: 서버가 보낸 안내 문구를 그대로 보여 줌
+    // 서버의 요청 횟수 제한·이용 제한: 서버가 보낸 안내 문구를 그대로 보여 줌
     async tooMany(res) {
         let message = '너무 자주 했어요. 잠시 뒤에 다시 해 주세요.'
         try { message = (await res.json()).message || message } catch (e) { }
@@ -210,7 +210,7 @@ class Account {
         try {
             const res = await this.api('/auth/me', { method: 'DELETE' })
             if (res.status === 401) return this.expired()
-            if (res.status === 429) return this.tooMany(res)
+            if (res.status === 429 || res.status === 403) return this.tooMany(res)
             if (!res.ok) throw new Error(`withdraw ${res.status}`)
         } catch (e) {
             console.error(e)

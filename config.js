@@ -1,5 +1,5 @@
 const APP_CONFIG = {
-    app_version: `1.41`,
+    app_version: `1.42`,
     app_name: `PartyNote`,
     app_alias: `partynote`,
     // 파티노트 서버(로그인·클라우드 백업). 로컬에서 열면 로컬 서버, 그 밖에는 운영 서버
