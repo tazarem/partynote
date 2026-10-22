@@ -601,7 +601,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .item-arrow { flex-shrink: 0; font-size: .75rem; opacity: .35; }
 
 /* 선택창의 세로 선택지 */
-.sheet-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; line-height: 1.5; padding-bottom: .1em; } /* 내용이 길어도 제목 줄이 눌려 글자 아래가 잘리지 않게 */
 .sheet-options { display: flex; flex-direction: column; gap: .4rem; }
 .sheet-option {
     display: flex;
@@ -909,7 +909,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
     background: var(--surface);
     transition: transform .25s ease;
 }
-.popup[data-variant="reader"] .popup-content { padding-top: calc(3.35rem + 1rem); }
+.popup[data-variant="reader"] .popup-content { padding-top: calc(var(--header-h, 3.35rem) + 1rem); }
 .popup[data-variant="reader"].immersive .popup-header, .popup[data-variant="editor"].immersive .popup-header { transform: translateY(calc(-100% - env(safe-area-inset-top))); }
 .popup[data-variant="reader"] .page-nav { transition: transform .25s ease; }
 /* 읽는 동안 쪽 넘기기 줄은 내려가도, 위쪽 가장자리의 읽은 만큼 막대(3px)는 화면 아래에 남김 */
@@ -930,7 +930,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .popup-header:has(.header-save) .draft-status { white-space: normal; word-break: keep-all; text-align: right; line-height: 1.25; max-width: 9.5rem; overflow: hidden; }
 
 /* ---------- 편집 화면: 상자 없이 글 위에 바로 쓰는 모양 ---------- */
-.popup[data-variant="editor"] .popup-content { padding-top: 3.35rem; }
+.popup[data-variant="editor"] .popup-content { padding-top: var(--header-h, 3.35rem); } /* 위쪽 줄의 실제 높이 (init.js에서 잼) */
 .popup[data-variant="editor"] .memo-editor { gap: .35rem; }
 /* 책 이름·불러오기 링크·제목: 위쪽 줄 바로 아래에 붙어 있다가, 아래로 써 내려가면 위쪽 줄과 함께 숨음 */
 .popup[data-variant="editor"] .editor-head {
@@ -943,7 +943,7 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
     background: var(--surface);
     transition: transform .25s ease;
 }
-.popup[data-variant="editor"].immersive .editor-head { transform: translateY(calc(-100% - 3.35rem - env(safe-area-inset-top))); }
+.popup[data-variant="editor"].immersive .editor-head { transform: translateY(calc(-100% - var(--header-h, 3.35rem) - env(safe-area-inset-top))); }
 .popup[data-variant="editor"] .memo-title-input,
 .popup[data-variant="editor"] .memo-content-input { border: 0; border-radius: 0; background: transparent; }
 .popup[data-variant="editor"] .memo-title-input { padding: .3rem 0; font-size: 16.5px; font-weight: 600; }

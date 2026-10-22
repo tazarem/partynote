@@ -174,6 +174,13 @@ class PartyNoteInit {
             if (e.target.matches('.memo-content-input')) setTimeout(() => keepCaretVisible(e.target), 350)
         })
 
+        // 위쪽 줄(제목·버튼)의 실제 높이를 재 둠: 읽기·편집 화면의 본문과 편집 머리말이 그 바로 아래에 틈 없이 붙게
+        // (기기 글꼴, 버튼 크기, 임시 저장 문구 줄바꿈에 따라 높이가 달라짐)
+        const header = $('.popup-header')
+        new ResizeObserver(() => {
+            if (header.offsetHeight) $('.popup').style.setProperty('--header-h', `${header.offsetHeight}px`) // 팝업이 닫혀 0일 때는 그대로 둠
+        }).observe(header)
+
         // 읽기 화면에서 스크롤 방향에 따라 위·아래 줄 숨기기
         $('.popup-content').addEventListener('scroll', () => party_note.onReaderScroll(), { passive: true })
 
