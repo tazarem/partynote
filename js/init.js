@@ -53,7 +53,10 @@ class PartyNoteInit {
             $('#item-searcher').focus()
         })
         $('.item-writer').addEventListener('click', () => party_note.openNew())
-        $('.menu-btn').addEventListener('click', () => ui.toggleDrawer())
+        $('.menu-btn').addEventListener('click', () => {
+            ui.toggleDrawer()
+            if (ui.drawer) notices.markSeen()
+        })
         $('.menu-overlay').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) ui.setDrawer(false)
         })
@@ -235,6 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     init_svc.bindMenu()
     install_guide.init()
     account.init() // 기다리지 않음 (서버가 느려도 앱은 바로 열리게)
+    notices.render()
     ui.on_popup_step_back = () => party_note.navBack()
     try {
         await party_note.init()

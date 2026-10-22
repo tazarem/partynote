@@ -995,3 +995,17 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 /* 로그인 버튼 아래 약관 동의 안내 */
 .login-agree { margin-top: .4rem; font-size: .75rem; color: var(--sub); line-height: 1.5; }
 .login-agree a { color: inherit; }
+
+/* 공지 (메뉴 맨 위) */
+.menu-dot { position: absolute; top: .55rem; right: .55rem; width: .5rem; height: .5rem; border-radius: 50%; background: #E53935; box-shadow: 0 0 0 2px var(--bg); }
+.notice-list { display: flex; flex-direction: column; gap: .4rem; margin-top: .4rem; }
+.notice { border-radius: .7rem; background: #8080801a; padding: .55rem .75rem; }
+.notice summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .4rem; font-size: .88rem; }
+.notice summary::-webkit-details-marker { display: none; }
+.notice-title { font-weight: 600; }
+.notice-date { margin-left: auto; font-size: .75rem; color: var(--sub); white-space: nowrap; }
+.notice-new { font-size: .68rem; font-weight: 700; color: #fff; background: #E53935; border-radius: 1rem; padding: .05rem .4rem; }
+.notice-body { margin-top: .35rem; font-size: .82rem; color: var(--sub); line-height: 1.6; }
+.notice-body p, .notice-body ul { margin: .25rem 0; }
+.notice-body ul { padding-left: 1.1rem; }
+.notice-body a { color: var(--text); }

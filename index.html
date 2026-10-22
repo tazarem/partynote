@@ -26,6 +26,7 @@
     <script src="./js/note.js"></script>
     <script src="./js/install.js"></script>
     <script src="./js/account.js"></script>
+    <script src="./js/notices.js"></script>
     <script src="./js/init.js"></script>
 </head>
 <body>
@@ -37,7 +38,7 @@
         <div class="right-position">
             <button type="button" class="top-bar-btn search-btn" aria-label="검색"><i class="fas fa-search"></i></button>
             <button type="button" class="top-bar-btn item-writer" aria-label="새로 만들기"><i class="fas fa-plus"></i></button>
-            <button type="button" class="top-bar-btn menu-btn" aria-label="메뉴"><i class="fas fa-bars"></i></button>
+            <button type="button" class="top-bar-btn menu-btn" aria-label="메뉴"><i class="fas fa-bars"></i><span class="menu-dot" hidden aria-label="새 공지"></span></button>
         </div>
     </header>
 
@@ -71,6 +72,12 @@
     <!-- menu -->
     <div class="menu-overlay collapse-x">
         <div class="menu-screen scroll">
+            <!-- 공지: js/notices.js -->
+            <div class="notice-wrap" hidden>
+                <h3>공지</h3>
+                <div class="notice-list"></div>
+            </div>
+
             <h3>테마</h3>
             <div class="config-caption">컬러 테마를 변경합니다</div>
             <div class="radio-group">
