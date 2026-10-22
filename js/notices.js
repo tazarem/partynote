@@ -1,46 +1,99 @@
-// 공지: 메뉴(환경설정) 맨 위 '공지' 칸에 보여 줌. 글 쓰는 화면은 방해하지 않고, 새 공지가 있으면 메뉴 버튼에 작은 점만 찍음
-// 새 공지는 맨 위에 추가하고 id를 1씩 올려 주세요. body는 직접 쓰는 HTML이에요 (링크는 상대 주소로)
-const NOTICES = [
-    {
-        id: 1,
-        date: '2026-10-22',
-        title: '개인정보 처리방침과 이용약관을 새로 정리했어요',
-        body: `
-            <p>로그인과 클라우드 백업이 생기면서, 개인정보보호위원회의 작성지침에 맞춰 두 문서를 다시 정리했어요. 2026년 10월 22일부터 적용돼요.</p>
-            <ul>
-                <li>처리하는 정보와 보관 기간을 표로 정리 (구글 이메일, 백업 최근 3개, 접속 기록 14일)</li>
-                <li>개인정보 보호책임자와 문의처 안내</li>
-                <li>이용약관을 조항 형식으로 정리 (약관 변경 시 7일 전 공지, 불리한 변경은 30일 전)</li>
-            </ul>
-            <p><a href="./privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a> · <a href="./terms.html" target="_blank" rel="noopener">이용약관</a></p>`,
-    },
-]
-
+// 공지: 메뉴(환경설정) 맨 위 '공지' 칸. 글 쓰는 화면은 방해하지 않고, 새 공지가 있으면 메뉴 버튼에 작은 점만 찍음
+// 공지는 파티노트 서버(GET /notices)에서 받아 오고, 마지막으로 받은 것을 기기에 저장해 둠
+// - 오프라인·서버 장애: 저장해 둔 공지를 그대로 보여 줌 (오류 문구 없이)
+// - 한 번도 받은 적이 없으면 공지 칸을 숨김
 const NOTICE_SEEN_KEY = 'ptnt_notice_seen'
+const NOTICE_CACHE_KEY = 'ptnt_notices'
+
+// 공지 내용(HTML)에서 이 태그들만 남기고, 링크는 앱 안 주소·https·메일만 허용
+const NOTICE_TAGS = new Set(['P', 'UL', 'OL', 'LI', 'B', 'STRONG', 'EM', 'BR', 'A'])
+// 이 태그들은 안의 내용까지 통째로 버림
+const NOTICE_DROP = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'TEMPLATE', 'NOSCRIPT', 'SVG', 'MATH'])
+
+function cleanNoticeHtml(html) {
+    const src = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html').body.firstChild
+    const out = document.createElement('div')
+    const copy = (from, to) => {
+        for (const node of from.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                to.appendChild(document.createTextNode(node.textContent))
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                if (NOTICE_DROP.has(node.tagName.toUpperCase())) continue
+                if (!NOTICE_TAGS.has(node.tagName)) {
+                    copy(node, to) // 허용하지 않는 태그는 벗기고 안의 글자만
+                    continue
+                }
+                const el = document.createElement(node.tagName)
+                if (node.tagName === 'A') {
+                    const href = node.getAttribute('href') || ''
+                    if (/^(\.\/|https:\/\/|mailto:)/.test(href)) {
+                        el.setAttribute('href', href)
+                        el.setAttribute('target', '_blank')
+                        el.setAttribute('rel', 'noopener')
+                    }
+                }
+                copy(node, el)
+                to.appendChild(el)
+            }
+        }
+    }
+    copy(src, out)
+    return out.innerHTML
+}
 
 const notices = {
+    items: [],
+
+    // 기기에 저장해 둔 공지로 먼저 그리고, 서버에서 새로 받아 오면 다시 그림
+    async init() {
+        try { this.items = JSON.parse(localStorage.getItem(NOTICE_CACHE_KEY) || '[]') } catch (e) { this.items = [] }
+        this.render()
+        await this.refresh()
+        window.addEventListener('online', () => this.refresh())
+    },
+
+    async refresh() {
+        const base = APP_CONFIG.api_base
+        if (!base) return
+        try {
+            const res = await fetch(`${base}/notices`)
+            if (!res.ok) return // 서버 장애: 저장해 둔 공지를 그대로 둠
+            this.items = (await res.json()).notices || []
+            try { localStorage.setItem(NOTICE_CACHE_KEY, JSON.stringify(this.items)) } catch (e) { }
+            this.render()
+        } catch (e) {
+            // 오프라인: 저장해 둔 공지를 그대로 둠 (아무 표시도 하지 않음)
+        }
+    },
+
     latestId() {
-        return NOTICES.reduce((max, n) => Math.max(max, n.id), 0)
+        return this.items.reduce((max, n) => Math.max(max, n.id), 0)
     },
 
     seenId() {
         try { return Number(localStorage.getItem(NOTICE_SEEN_KEY)) || 0 } catch (e) { return 0 }
     },
 
+    dateLabel(value) {
+        const d = new Date(value)
+        if (Number.isNaN(d.getTime())) return ''
+        return `${d.getFullYear()}. ${String(d.getMonth() + 1).padStart(2, '0')}. ${String(d.getDate()).padStart(2, '0')}.`
+    },
+
     render() {
         const wrap = $('.notice-wrap')
         if (!wrap) return
-        wrap.hidden = !NOTICES.length
+        wrap.hidden = !this.items.length // 받은 공지가 없으면 칸째 숨김
         const seen = this.seenId()
         // 최근 3개까지. 아직 안 읽은 공지는 펼쳐 둠
-        $('.notice-list').innerHTML = NOTICES.slice(0, 3).map(n => `
+        $('.notice-list').innerHTML = this.items.slice(0, 3).map(n => `
             <details class="notice" ${n.id > seen ? 'open' : ''}>
                 <summary>
                     ${n.id > seen ? '<span class="notice-new">새 공지</span>' : ''}
                     <span class="notice-title">${esc(n.title)}</span>
-                    <span class="notice-date">${esc(n.date.replace(/-/g, '. '))}.</span>
+                    <span class="notice-date">${esc(this.dateLabel(n.date))}</span>
                 </summary>
-                <div class="notice-body">${n.body}</div>
+                <div class="notice-body">${cleanNoticeHtml(n.body || '')}</div>
             </details>`).join('')
         this.renderDot()
     },
@@ -53,7 +106,8 @@ const notices = {
 
     // 메뉴를 열면 읽은 것으로 (점은 바로 사라지고, '새 공지' 표시는 다음에 메뉴를 열 때 사라짐)
     markSeen() {
-        try { localStorage.setItem(NOTICE_SEEN_KEY, String(this.latestId())) } catch (e) { }
+        if (!this.items.length) return
+        try { localStorage.setItem(NOTICE_SEEN_KEY, String(Math.max(this.latestId(), this.seenId()))) } catch (e) { }
         this.renderDot()
     },
 }

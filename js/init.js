@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     init_svc.bindMenu()
     install_guide.init()
     account.init() // 기다리지 않음 (서버가 느려도 앱은 바로 열리게)
-    notices.render()
+    notices.init() // 저장해 둔 공지로 먼저 그리고 서버에서 새로 받아 옴 (기다리지 않음)
     ui.on_popup_step_back = () => party_note.navBack()
     try {
         await party_note.init()

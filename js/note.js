@@ -423,16 +423,16 @@ class PartyNote {
     async addChapter() {
         const b = this.book(this.open_book_id)
         if (!b) return
-        const title = await ui.prompt('장 제목을 적어 주세요.', { placeholder: '예: 2장. 가을', ok: '다음', maxlength: 60 })
+        const title = await ui.prompt('챕터 제목을 적어 주세요.', { placeholder: '예: 2장. 가을', ok: '다음', maxlength: 60 })
         if (!title) return
-        const at = await this.pickChapterPlace(b, `'${title}' 장을 어디서부터 시작할까요?`)
+        const at = await this.pickChapterPlace(b, `'${title}' 챕터를 어디서부터 시작할까요?`)
         if (at === null) return
-        if (this.chapters(b).some(c => c.at === at)) return ui.toast('그 자리에는 이미 장이 있어요')
+        if (this.chapters(b).some(c => c.at === at)) return ui.toast('그 자리에는 이미 챕터 구분이 있어요')
         b.chapters = [...this.chapters(b), { uid: newUid(), title, at }]
         await this.saveBookRecord(b)
         this.render()
         this.renderBook()
-        ui.toast('장을 추가했어요')
+        ui.toast('챕터 구분을 추가했어요')
     }
 
     // 장 구분선의 … 버튼: 제목 고치기 / 위치 옮기기 / 장 없애기 (쪽은 그대로)
@@ -444,22 +444,22 @@ class PartyNote {
             title: c.title,
             content: `
                 <div class="sheet-options">
-                    <button type="button" class="sheet-option" data-sheet-value="rename"><i class="fas fa-pen"></i> 장 제목 고치기</button>
+                    <button type="button" class="sheet-option" data-sheet-value="rename"><i class="fas fa-pen"></i> 챕터 제목 고치기</button>
                     <button type="button" class="sheet-option" data-sheet-value="move"><i class="fas fa-exchange-alt"></i> 위치 옮기기</button>
-                    <button type="button" class="sheet-option danger" data-sheet-value="remove"><i class="fas fa-times"></i> 장 없애기 (쪽은 그대로)</button>
+                    <button type="button" class="sheet-option danger" data-sheet-value="remove"><i class="fas fa-times"></i> 챕터 구분 없애기 (쪽은 그대로)</button>
                 </div>`,
         })
         if (choice === 'rename') {
-            const title = await ui.prompt('장 제목을 고쳐 주세요.', { value: c.title, ok: '저장', maxlength: 60 })
+            const title = await ui.prompt('챕터 제목을 고쳐 주세요.', { value: c.title, ok: '저장', maxlength: 60 })
             if (!title || title === c.title) return
             c.title = title
         } else if (choice === 'move') {
-            const at = await this.pickChapterPlace(b, `'${c.title}' 장을 어디로 옮길까요?`)
+            const at = await this.pickChapterPlace(b, `'${c.title}' 챕터를 어디로 옮길까요?`)
             if (at === null || at === c.at) return
-            if (this.chapters(b).some(x => x !== c && x.at === at)) return ui.toast('그 자리에는 이미 장이 있어요')
+            if (this.chapters(b).some(x => x !== c && x.at === at)) return ui.toast('그 자리에는 이미 챕터 구분이 있어요')
             c.at = at
         } else if (choice === 'remove') {
-            if (!(await ui.confirm(`'${c.title}' 장을 없앨까요?\n구분선만 사라지고 쪽은 그대로 남아요.`, { ok: '없애기', danger: true }))) return
+            if (!(await ui.confirm(`'${c.title}' 챕터 구분을 없앨까요?\n구분선만 사라지고 쪽은 그대로 남아요.`, { ok: '없애기', danger: true }))) return
             b.chapters = this.chapters(b).filter(x => x !== c)
         } else {
             return
@@ -910,7 +910,7 @@ class PartyNote {
         const chapterRow = (c) => `
                         <li class="chapter-row">
                             <span class="chapter-title">${esc(c.title)}</span>
-                            <button type="button" class="icon-btn" data-chapter-more="${c.uid}" aria-label="장 더 보기"><i class="fas fa-ellipsis-h"></i></button>
+                            <button type="button" class="icon-btn" data-chapter-more="${c.uid}" aria-label="챕터 더 보기"><i class="fas fa-ellipsis-h"></i></button>
                         </li>`
         el.innerHTML = `
             ${status !== 'active' ? `
@@ -929,7 +929,7 @@ class PartyNote {
                 <button type="button" class="btn primary" data-action="page-new"><i class="fas fa-plus"></i> 새 쪽 쓰기</button>
                 ${loose ? `<button type="button" class="btn ghost" data-action="page-pick"><i class="${ICONS.memo}"></i> 낱장 넣기</button>` : ''}
                 ${mark >= 0 ? `<button type="button" class="btn ghost" data-page-open="${pages[mark].id}"><i class="fas fa-bookmark"></i> 이어 읽기 (${mark + 1}쪽)</button>` : ''}
-                <button type="button" class="btn ghost" data-action="chapter-add"><i class="fas fa-heading"></i> 장 추가</button>
+                <button type="button" class="btn ghost" data-action="chapter-add"><i class="fas fa-heading"></i> 챕터 구분 추가</button>
                 ${pages.length > 1 ? `
                     <button type="button" class="text-btn page-sort" data-action="page-sort" aria-label="쪽 정렬 바꾸기">
                         <i class="fas ${desc ? 'fa-sort-numeric-down-alt' : 'fa-sort-numeric-down'}"></i> ${desc ? '내림차순' : '오름차순'}
