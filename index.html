@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#FFCDD2">
+    <title>파티노트</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" href="./img/icons/favicon-32.png">
+    <link rel="apple-touch-icon" href="./img/icons/apple-touch-icon.png">
+    <style>
+        :root { --bg: #FFCDD2; --surface: #FFF5F6; --text: #3A1F26; --sub: #8A5A66; --accent: #FF8FAB; }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif; line-height: 1.65; word-break: keep-all; }
+        .card { width: 100%; max-width: 420px; background: var(--surface); border-radius: 18px; padding: 28px 22px; text-align: center; box-shadow: 0 2px 14px #0000001a; }
+        .logo { width: 56px; height: 56px; border-radius: 14px; }
+        h1 { margin: 10px 0 12px; font-size: 1.2rem; }
+        p { margin: 0 0 10px; font-size: .93rem; }
+        .count { margin: 14px 0; padding: 10px; border-radius: 12px; background: #8080801a; font-size: .9rem; }
+        .sub { color: var(--sub); font-size: .82rem; }
+        a.btn { display: inline-block; margin: 8px 0 14px; padding: 11px 22px; border-radius: 999px; background: var(--accent); color: var(--text); font-weight: 700; text-decoration: none; }
+        ol { text-align: left; margin: 0 0 6px; padding-left: 1.3rem; font-size: .86rem; color: var(--sub); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <img class="logo" src="./img/icons/icon-192.png" alt="">
+        <h1>파티노트가 이사했어요 🚚</h1>
+        <p>이제 <b>party-note.com</b>에서 만나요.</p>
+        <div class="count">이 브라우저에 남은 글을 확인하는 중…</div>
+        <a class="btn" href="https://party-note.com/?move=1">새 주소에서 글 가져오기</a>
+        <ol>
+            <li>위 버튼을 누르면 새 파티노트가 열려요.</li>
+            <li><b>가져오기</b> → <b>합치기</b>를 누르면 쓰던 글·책·설정이 그대로 옮겨져요.</li>
+            <li>앱으로 쓰고 있었다면, 새 주소에서 <b>홈 화면에 추가(앱 설치)</b>를 다시 해 주세요.</li>
+        </ol>
+        <p class="sub">이 주소에 남은 글은 지워지지 않아요. 여러 번 옮겨도 겹치지 않아요.<br>문의: partynote.help@gmail.com</p>
+    </div>
+    <script>
+    // 옛 주소(coding-coconut.com/partynote)에 남는 이사 안내
+    // - 예전 파티노트의 서비스 워커는 같은 폴더의 service-worker.js(정리용)로 바뀌면서 스스로 물러남
+    // - 이 브라우저(옛 주소)에 글이 몇 개 남았는지 보여 줌. 읽기만 하고 아무것도 보내지 않음
+    //   (실제로 옮기는 것은 새 주소가 이사 도우미 coding-coconut.com/partynote-move/ 를 열어서 함)
+    (function () {
+        var box = document.querySelector('.count')
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(function () {})
+
+        function done(text) { box.innerHTML = text }
+        var check = indexedDB.databases ? indexedDB.databases() : Promise.resolve(null)
+        check.then(function (list) {
+            if (list && !list.some(function (d) { return d.name === 'partynote_v1' })) return done('이 브라우저에는 옮길 글이 없어요.')
+            var open = indexedDB.open('partynote_v1')
+            open.onerror = function () { done('남은 글을 확인하지 못했어요. 그래도 아래 버튼으로 옮길 수 있어요.') }
+            open.onsuccess = function () {
+                var db = open.result
+                if (!db.objectStoreNames.contains('memo') || !db.objectStoreNames.contains('book')) return done('이 브라우저에는 옮길 글이 없어요.')
+                var tx = db.transaction(['memo', 'book'], 'readonly')
+                var memos = tx.objectStore('memo').getAll(), books = tx.objectStore('book').getAll()
+                tx.oncomplete = function () {
+                    var m = memos.result.filter(function (x) { return !x.deleted_at }).length
+                    var b = books.result.filter(function (x) { return !x.deleted_at }).length
+                    done(m || b ? '이 브라우저에 <b>메모 ' + m + '개, 책 ' + b + '권</b>이 남아 있어요.' : '이 브라우저에는 옮길 글이 없어요.')
+                }
+            }
+        })
+    })()
+    </script>
+</body>
+</html>
