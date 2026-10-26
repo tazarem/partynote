@@ -12,29 +12,62 @@
         :root { --bg: #FFCDD2; --surface: #FFF5F6; --text: #3A1F26; --sub: #8A5A66; --accent: #FF8FAB; }
         * { box-sizing: border-box; }
         body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif; line-height: 1.65; word-break: keep-all; }
-        .card { width: 100%; max-width: 420px; background: var(--surface); border-radius: 18px; padding: 28px 22px; text-align: center; box-shadow: 0 2px 14px #0000001a; }
-        .logo { width: 56px; height: 56px; border-radius: 14px; }
+        .card { width: 100%; max-width: 420px; background: var(--surface); border-radius: 18px; padding: 28px 22px; text-align: center; box-shadow: 0 2px 14px #0000001a; display: flex; flex-direction: column; }
+        .logo { width: 56px; height: 56px; border-radius: 14px; align-self: center; }
         h1 { margin: 10px 0 12px; font-size: 1.2rem; }
+        h2 { margin: 0 0 8px; font-size: 1rem; }
         p { margin: 0 0 10px; font-size: .93rem; }
         .count { margin: 14px 0; padding: 10px; border-radius: 12px; background: #8080801a; font-size: .9rem; }
         .sub { color: var(--sub); font-size: .82rem; }
-        a.btn { display: inline-block; margin: 8px 0 14px; padding: 11px 22px; border-radius: 999px; background: var(--accent); color: var(--text); font-weight: 700; text-decoration: none; }
+        a.btn, button.btn { display: inline-block; margin: 8px auto 14px; padding: 11px 22px; border: 0; border-radius: 999px; background: var(--accent); color: var(--text); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+        button.btn.ghost { background: #fff; border: 1px solid #0000001f; }
         ol { text-align: left; margin: 0 0 6px; padding-left: 1.3rem; font-size: .86rem; color: var(--sub); }
+        ol b { color: var(--text); }
+        .section { margin-top: 6px; padding-top: 14px; border-top: 1px dashed #0000001f; }
+        details.section summary { cursor: pointer; font-weight: 700; font-size: .93rem; list-style: none; }
+        details.section summary::-webkit-details-marker { display: none; }
+        details.section summary::after { content: ' ›'; color: var(--sub); }
+        details.section[open] summary { margin-bottom: 8px; }
+        /* 아이폰·아이패드: 아이폰 방법을 맨 위에, 버튼 한 번 이사는 아래로 (아이폰 홈 화면 앱은 저장소가 따로라 버튼 한 번 이사가 안 됨) */
+        .ios .ios-move { order: -1; margin: 0 0 14px; padding: 0 0 14px; border-top: 0; border-bottom: 1px dashed #0000001f; }
+        .ios .web-move { order: 1; }
+        .head { order: -2; }
+        .foot { order: 2; }
     </style>
 </head>
 <body>
     <div class="card">
-        <img class="logo" src="./img/icons/icon-192.png" alt="">
-        <h1>파티노트가 이사했어요 🚚</h1>
-        <p>이제 <b>party-note.com</b>에서 만나요.</p>
-        <div class="count">이 브라우저에 남은 글을 확인하는 중…</div>
-        <a class="btn" href="https://party-note.com/?move=1" target="_blank" rel="noopener">새 주소에서 글 가져오기</a>
-        <ol>
-            <li>위 버튼을 누르면 새 파티노트가 열려요.</li>
-            <li><b>가져오기</b> → <b>합치기</b>를 누르면 쓰던 글·책·설정이 그대로 옮겨져요.</li>
-            <li>앱으로 쓰고 있었다면, 새 주소에서 <b>앱 설치(홈 화면에 추가)</b>를 다시 하고, 이 옛 앱은 지워 주세요. (PC 크롬은 이 창 오른쪽 위 <b>⋮ → 제거</b>)</li>
-        </ol>
-        <p class="sub">이 주소에 남은 글은 지워지지 않아요. 여러 번 옮겨도 겹치지 않아요.<br>문의: partynote.help@gmail.com</p>
+        <div class="head">
+            <img class="logo" src="./img/icons/icon-192.png" alt="">
+            <h1>파티노트가 이사했어요 🚚</h1>
+            <p>이제 <b>party-note.com</b>에서 만나요.</p>
+            <div class="count">이 브라우저에 남은 글을 확인하는 중…</div>
+        </div>
+
+        <!-- 안드로이드·PC: 버튼 한 번 이사 -->
+        <div class="web-move">
+            <a class="btn" href="https://party-note.com/?move=1" target="_blank" rel="noopener">새 주소에서 글 가져오기</a>
+            <ol>
+                <li>위 버튼을 누르면 새 파티노트가 열려요.</li>
+                <li><b>가져오기</b> → <b>합치기</b>를 누르면 쓰던 글·책·설정이 그대로 옮겨져요.</li>
+                <li>앱으로 쓰고 있었다면, 새 주소에서 <b>앱 설치(홈 화면에 추가)</b>를 다시 하고, 이 옛 앱은 지워 주세요. (PC 크롬은 이 창 오른쪽 위 <b>⋮ → 제거</b>)</li>
+            </ol>
+        </div>
+
+        <!-- 아이폰·아이패드: 홈 화면 앱은 저장소가 따로라 파일로 옮김. 아이폰이면 펼쳐서 맨 위로 -->
+        <details class="section ios-move">
+            <summary>아이폰·아이패드 이사하는 법</summary>
+            <p class="sub">아이폰의 홈 화면 앱은 글이 그 앱 안에만 있어서, 백업 파일로 옮겨요.</p>
+            <button type="button" class="btn backup-btn">백업 파일로 저장하기</button>
+            <ol>
+                <li>위 버튼을 누르고, 공유 창에서 <b>파일에 저장</b>을 골라요.</li>
+                <li><b>사파리</b>로 <b>party-note.com</b>을 열고, 공유 버튼 → <b>홈 화면에 추가</b>로 새 파티노트를 설치해요.</li>
+                <li>새 파티노트에서 <b>메뉴 → 백업 → 가져오기</b> → 저장한 파일을 고르고 <b>합치기</b>를 눌러요.</li>
+                <li>잘 옮겨졌으면 이 옛 앱 아이콘을 길게 눌러 <b>앱 삭제</b>해요.</li>
+            </ol>
+        </details>
+
+        <p class="sub foot" style="margin-top:10px">이 주소에 남은 글은 지워지지 않아요. 여러 번 옮겨도 겹치지 않아요.<br>문의: partynote.help@gmail.com</p>
     </div>
     <script>
     // 옛 주소(coding-coconut.com/partynote)에 남는 이사 안내
@@ -44,24 +77,86 @@
     //   (실제로 옮기는 것은 새 주소가 이사 도우미 coding-coconut.com/partynote-move/ 를 열어서 함)
     (function () {
         var box = document.querySelector('.count')
+        var DB_NAME = 'partynote_v1'
 
-        function done(text) { box.innerHTML = text }
-        var check = indexedDB.databases ? indexedDB.databases() : Promise.resolve(null)
-        check.then(function (list) {
-            if (list && !list.some(function (d) { return d.name === 'partynote_v1' })) return done('이 브라우저에는 옮길 글이 없어요.')
-            var open = indexedDB.open('partynote_v1')
-            open.onerror = function () { done('남은 글을 확인하지 못했어요. 그래도 아래 버튼으로 옮길 수 있어요.') }
-            open.onsuccess = function () {
-                var db = open.result
-                if (!db.objectStoreNames.contains('memo') || !db.objectStoreNames.contains('book')) return done('이 브라우저에는 옮길 글이 없어요.')
-                var tx = db.transaction(['memo', 'book'], 'readonly')
-                var memos = tx.objectStore('memo').getAll(), books = tx.objectStore('book').getAll()
-                tx.oncomplete = function () {
-                    var m = memos.result.filter(function (x) { return !x.deleted_at }).length
-                    var b = books.result.filter(function (x) { return !x.deleted_at }).length
-                    done(m || b ? '이 브라우저에 <b>메모 ' + m + '개, 책 ' + b + '권</b>이 남아 있어요.' : '이 브라우저에는 옮길 글이 없어요.')
+        // 아이폰·아이패드(아이패드는 맥처럼 보이기도 해서 터치로 구분)면 아이폰 방법을 펼쳐서 맨 위로
+        var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+        if (ios) {
+            document.querySelector('.card').classList.add('ios')
+            document.querySelector('.ios-move').open = true
+        }
+
+        // 이 브라우저(이 앱)의 옛 파티노트 글: 휴지통은 빼고 { books, memos }. 없으면 null
+        function readLegacy() {
+            var check = indexedDB.databases ? indexedDB.databases() : Promise.resolve(null)
+            return check.then(function (list) {
+                if (list && !list.some(function (d) { return d.name === DB_NAME })) return null
+                return new Promise(function (res, rej) {
+                    var open = indexedDB.open(DB_NAME)
+                    open.onerror = function () { rej(open.error) }
+                    open.onsuccess = function () {
+                        var db = open.result
+                        if (!db.objectStoreNames.contains('memo') || !db.objectStoreNames.contains('book')) return res(null)
+                        var tx = db.transaction(['memo', 'book'], 'readonly')
+                        var memos = tx.objectStore('memo').getAll(), books = tx.objectStore('book').getAll()
+                        tx.oncomplete = function () {
+                            res({
+                                books: books.result.filter(function (x) { return !x.deleted_at }),
+                                memos: memos.result.filter(function (x) { return !x.deleted_at }),
+                            })
+                        }
+                        tx.onerror = function () { rej(tx.error) }
+                    }
+                })
+            })
+        }
+
+        // 파티노트 백업 파일과 같은 모양 (새 파티노트의 '가져오기'로 그대로 넣을 수 있음)
+        function backupJson(data) {
+            var bookUid = {}, memoUid = {}
+            data.books.forEach(function (b) { bookUid[b.id] = b.uid })
+            data.memos.forEach(function (m) { memoUid[m.id] = m.uid })
+            return JSON.stringify({
+                app: 'partynote',
+                version: 'legacy',
+                exported_at: new Date().toISOString(),
+                books: data.books.map(function (b) {
+                    var o = Object.assign({}, b); delete o.id; delete o.bookmark_id
+                    o.bookmark_uid = memoUid[b.bookmark_id] || ''
+                    return o
+                }),
+                memos: data.memos.map(function (m) {
+                    var o = Object.assign({}, m); delete o.id; delete o.book_id
+                    o.book_uid = bookUid[m.book_id] || ''
+                    return o
+                }),
+            }, null, 2)
+        }
+
+        readLegacy().then(function (data) {
+            var m = data ? data.memos.length : 0, b = data ? data.books.length : 0
+            box.innerHTML = m || b ? '이 ' + (ios ? '앱' : '브라우저') + '에 <b>메모 ' + m + '개, 책 ' + b + '권</b>이 남아 있어요.' : '이 ' + (ios ? '앱' : '브라우저') + '에는 옮길 글이 없어요.'
+        }, function () {
+            box.innerHTML = '남은 글을 확인하지 못했어요. 그래도 아래 방법으로 옮길 수 있어요.'
+        })
+
+        // 백업 파일 저장: 아이폰은 공유 창(파일에 저장), 그 밖에는 내려받기
+        document.querySelector('.backup-btn').addEventListener('click', function () {
+            readLegacy().then(function (data) {
+                if (!data || (!data.books.length && !data.memos.length)) return alert('저장할 글이 없어요.')
+                var d = new Date(), p = function (n) { return String(n).padStart(2, '0') }
+                var name = 'partynote-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.json'
+                var file = new File([backupJson(data)], name, { type: 'application/json' })
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    return navigator.share({ files: [file], title: '파티노트 백업' }).catch(function () {})
                 }
-            }
+                var a = document.createElement('a')
+                a.href = URL.createObjectURL(file)
+                a.download = name
+                document.body.appendChild(a)
+                a.click()
+                setTimeout(function () { URL.revokeObjectURL(a.href); a.remove() }, 1000)
+            }, function () { alert('글을 읽지 못했어요. 잠시 뒤 다시 해 주세요.') })
         })
     })()
     </script>
