@@ -9,3 +9,4 @@
 - `manifest.json`, `img/icons/` — 설치된 옛 앱의 이름·아이콘 유지용
 
 실제로 글을 옮기는 일은 새 앱이 블로그 쪽 이사 도우미(`coding-coconut.com/partynote-move/`)를 열어서 해요.
+마이그레이션 적용 커밋
