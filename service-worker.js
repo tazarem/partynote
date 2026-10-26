@@ -12,8 +12,12 @@ self.addEventListener('activate', (e) => {
         }
         await self.clients.claim()
         await self.registration.unregister()
+        // 옛 앱 화면만 새로고침 (?cleaned 를 붙여서, 혹시라도 다시 이 워커가 깔려도 같은 화면을 또 새로고침하지 않게)
         for (const client of await self.clients.matchAll({ type: 'window' })) {
-            client.navigate(client.url).catch(() => {})
+            const url = new URL(client.url)
+            if (url.searchParams.has('cleaned')) continue
+            url.searchParams.set('cleaned', '1')
+            client.navigate(url.href).catch(() => {})
         }
     })())
 })
